@@ -4,7 +4,7 @@ General-purpose DeepAgents platform scaffold with Docker Compose, a repo-visible
 
 ## Services
 
-- `agent-api` on `:8080`: DeepAgents workflow runtime.
+- `agent-api` on `:8081`: DeepAgents workflow runtime.
 - `workspace-api` on `:8090`: safe upload/list/download/delete API for the shared workspace.
 - `client` on `:8501`: simple chat and workspace browser UI.
 - `postgres`: LangGraph checkpoint storage.
@@ -19,7 +19,7 @@ docker compose up -d --build
 Health checks:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 curl http://localhost:8090/health
 ```
 

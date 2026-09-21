@@ -23,6 +23,6 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app /seed \
     && chmod +x /app/agent_api/entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["/app/agent_api/entrypoint.sh"]

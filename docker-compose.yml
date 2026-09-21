@@ -59,6 +59,7 @@ services:
     env_file:
       - .env
     environment:
+      AGENT_API_PORT: 8081
       PROVIDERS_CONFIG_PATH: /app/config/providers.yaml
       AGENT_DATA_ROOT: /data
       WORKSPACE_ROOT: /data/agent_workspace
@@ -85,7 +86,7 @@ services:
       workspace-api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')\""]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -102,8 +103,8 @@ services:
     env_file:
       - .env
     environment:
-      AGENT_API_URL: http://agent-api:8080
-      AGENT_API_FALLBACK_URLS: http://host.docker.internal:8080
+      AGENT_API_URL: http://agent-api:8081
+      AGENT_API_FALLBACK_URLS: http://host.docker.internal:8081
       WORKSPACE_API_URL: http://workspace-api:8090
       WORKSPACE_API_FALLBACK_URLS: http://host.docker.internal:8090
       AGENT_DATA_ROOT: /data

@@ -7,9 +7,9 @@ from typing import Iterable
 import requests
 
 DEFAULT_AGENT_API_URLS = (
-    "http://agent-api:8080",
-    "http://host.docker.internal:8080",
-    "http://localhost:8080",
+    "http://agent-api:8081",
+    "http://host.docker.internal:8081",
+    "http://localhost:8081",
 )
 DEFAULT_WORKSPACE_API_URLS = (
     "http://workspace-api:8090",
@@ -42,7 +42,9 @@ def _candidate_urls(
 def _probe_json(url: str, path: str, *, params: dict[str, str] | None = None, timeout: int = 5) -> bool:
     response = requests.get(f"{url}{path}", params=params, timeout=timeout)
     response.raise_for_status()
-    response.json()
+    payload = response.json()
+    if not isinstance(payload, dict) or payload.get("status") != "ok":
+        raise ValueError(f"unexpected health response: {payload!r}")
     return True
 
 
@@ -71,7 +73,7 @@ def resolve_agent_api_url() -> str:
         configured_url=os.environ.get("AGENT_API_URL"),
         fallback_urls=os.environ.get("AGENT_API_FALLBACK_URLS"),
         default_urls=DEFAULT_AGENT_API_URLS,
-        path="/v1/threads",
+        path="/health",
     )
 
 
@@ -81,6 +83,5 @@ def resolve_workspace_api_url() -> str:
         configured_url=os.environ.get("WORKSPACE_API_URL"),
         fallback_urls=os.environ.get("WORKSPACE_API_FALLBACK_URLS"),
         default_urls=DEFAULT_WORKSPACE_API_URLS,
-        path="/v1/files",
-        params={"path": "/"},
+        path="/health",
     )
