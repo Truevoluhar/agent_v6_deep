@@ -13,6 +13,8 @@ class WorkspaceEntry:
     path: str
     is_dir: bool
     size: int | None = None
+    modified_at: float | None = None
+    exists: bool | None = None
 
 
 class WorkspaceManager:
