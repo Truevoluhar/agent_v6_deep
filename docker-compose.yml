@@ -120,6 +120,8 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "agent-api:host-gateway"
+      - "workspace-api:host-gateway"
     security_opt:
       - no-new-privileges:true
     cap_drop:
