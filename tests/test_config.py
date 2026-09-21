@@ -36,6 +36,18 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
                 "    temperature: 0",
                 "    timeout_seconds: 90",
                 "    max_retries: 4",
+                "  vllm:",
+                "    type: openai_compatible",
+                "    model: vllm-test",
+                "    base_url: https://vllm.example.com/v1",
+                "    api_key: ${VLLM_API_KEY:-dummy}",
+                "    temperature: 0",
+                "    timeout_seconds: 120",
+                "    max_retries: 2",
+                "    tls_verify: ${VLLM_TLS_VERIFY:-true}",
+                "    tls_ca_file: ${VLLM_CA_FILE:-}",
+                "    tls_client_cert_file: ${VLLM_CLIENT_CERT_FILE:-}",
+                "    tls_client_key_file: ${VLLM_CLIENT_KEY_FILE:-}",
             ]
         ),
         encoding="utf-8",
@@ -44,7 +56,7 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
     raw = load_provider_file(config_path, env={"OPENAI_API_KEY": "abc123"})
     assert raw["providers"]["openai"]["api_key"] == "abc123"
 
-    config = load_config(
+    openai_config = load_config(
         config_path=config_path,
         env={
             "OPENAI_API_KEY": "abc123",
@@ -53,15 +65,37 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
             "DATABASE_URL": "postgresql://example",
         },
     )
-    assert config.active_provider == "openai"
-    assert config.provider.model == "gpt-test"
-    assert config.provider.api_key == "abc123"
-    assert config.agent.data_root == tmp_path / "data"
-    assert config.agent.workspace_root == tmp_path / "data" / "agent_workspace"
-    assert config.agent.session_root == tmp_path / "data" / "session"
-    assert config.agent.memory_root == tmp_path / "data" / "memory"
-    assert config.agent.resources_root == tmp_path / "data" / "resources"
-    assert config.agent.runs_root == tmp_path / "data" / "runs"
-    assert config.agent.database_url == "postgresql://example"
-    assert config.agent.use_checkpointer is True
-    assert config.agent.enabled_toolkits == ["filesystem", "shell"]
+    assert openai_config.active_provider == "openai"
+    assert openai_config.provider.model == "gpt-test"
+    assert openai_config.provider.api_key == "abc123"
+    assert openai_config.agent.data_root == tmp_path / "data"
+    assert openai_config.agent.workspace_root == tmp_path / "data" / "agent_workspace"
+    assert openai_config.agent.session_root == tmp_path / "data" / "session"
+    assert openai_config.agent.memory_root == tmp_path / "data" / "memory"
+    assert openai_config.agent.resources_root == tmp_path / "data" / "resources"
+    assert openai_config.agent.runs_root == tmp_path / "data" / "runs"
+    assert openai_config.agent.database_url == "postgresql://example"
+    assert openai_config.agent.use_checkpointer is True
+    assert openai_config.agent.enabled_toolkits == ["filesystem", "shell"]
+    assert openai_config.provider.tls_verify is True
+    assert openai_config.provider.tls_ca_file is None
+    assert openai_config.provider.tls_client_cert_file is None
+    assert openai_config.provider.tls_client_key_file is None
+
+    vllm_config = load_config(
+        config_path=config_path,
+        env={
+            "ACTIVE_PROVIDER": "vllm",
+            "VLLM_API_KEY": "dummy",
+            "VLLM_TLS_VERIFY": str(tmp_path / "certs" / "corp-ca.pem"),
+            "VLLM_CA_FILE": str(tmp_path / "certs" / "corp-ca.pem"),
+            "VLLM_CLIENT_CERT_FILE": str(tmp_path / "certs" / "client.pem"),
+            "VLLM_CLIENT_KEY_FILE": str(tmp_path / "certs" / "client.key"),
+        },
+    )
+    assert vllm_config.active_provider == "vllm"
+    assert vllm_config.provider.model == "vllm-test"
+    assert vllm_config.provider.tls_verify == str(tmp_path / "certs" / "corp-ca.pem")
+    assert vllm_config.provider.tls_ca_file == str(tmp_path / "certs" / "corp-ca.pem")
+    assert vllm_config.provider.tls_client_cert_file == str(tmp_path / "certs" / "client.pem")
+    assert vllm_config.provider.tls_client_key_file == str(tmp_path / "certs" / "client.key")

@@ -21,6 +21,12 @@ class ProviderConfig:
     temperature: float
     timeout_seconds: int
     max_retries: int
+    tls_verify: bool | str
+    tls_ca_file: str | None
+    tls_ca_path: str | None
+    tls_client_cert_file: str | None
+    tls_client_key_file: str | None
+    tls_client_key_password: str | None
 
 
 @dataclass(frozen=True)
@@ -85,6 +91,25 @@ def load_config(
         raise ValueError(f"Active provider '{active_provider}' not defined in providers.yaml.")
 
     raw_provider = providers[active_provider]
+
+    raw_tls_verify = raw_provider.get("tls_verify", True)
+    if isinstance(raw_tls_verify, str):
+        lowered = raw_tls_verify.strip().lower()
+        if lowered in {"true", "1", "yes", "on"}:
+            tls_verify: bool | str = True
+        elif lowered in {"false", "0", "no", "off"}:
+            tls_verify = False
+        else:
+            tls_verify = raw_tls_verify.strip()
+    else:
+        tls_verify = bool(raw_tls_verify)
+
+    def optional_string(value: Any) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
     provider = ProviderConfig(
         name=active_provider,
         type=str(raw_provider["type"]),
@@ -94,6 +119,12 @@ def load_config(
         temperature=float(raw_provider.get("temperature", 0)),
         timeout_seconds=int(raw_provider.get("timeout_seconds", 180)),
         max_retries=int(raw_provider.get("max_retries", 2)),
+        tls_verify=tls_verify,
+        tls_ca_file=optional_string(raw_provider.get("tls_ca_file")),
+        tls_ca_path=optional_string(raw_provider.get("tls_ca_path")),
+        tls_client_cert_file=optional_string(raw_provider.get("tls_client_cert_file")),
+        tls_client_key_file=optional_string(raw_provider.get("tls_client_key_file")),
+        tls_client_key_password=optional_string(raw_provider.get("tls_client_key_password")),
     )
 
     data_root = Path(env_values.get("AGENT_DATA_ROOT", "/data"))

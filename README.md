@@ -42,6 +42,19 @@ VLLM_BASE_URL=http://your-vllm-host:8000/v1
 VLLM_API_KEY=dummy
 ```
 
+OpenAI needs no certificate files or custom TLS settings.
+
+For private vLLM TLS or mTLS gateways, place your certificate files in the repo-local `certs/` directory and set the vLLM-specific options in `.env`:
+
+```dotenv
+VLLM_TLS_VERIFY=true
+VLLM_CA_FILE=/certs/internal-ca.pem
+VLLM_CLIENT_CERT_FILE=/certs/client.pem
+VLLM_CLIENT_KEY_FILE=/certs/client.key
+```
+
+Set `VLLM_TLS_VERIFY=false` only when you intentionally want to disable certificate verification.
+
 Provider definitions live in [config/providers.yaml](/workspaces/agent_v6_deep/config/providers.yaml).
 
 ## Persistence

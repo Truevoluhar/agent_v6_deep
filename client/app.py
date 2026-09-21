@@ -6,8 +6,11 @@ from typing import Any
 import requests
 import streamlit as st
 
-AGENT_API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8080")
-WORKSPACE_API_URL = os.environ.get("WORKSPACE_API_URL", "http://localhost:8090")
+try:
+    from service_urls import resolve_agent_api_url, resolve_workspace_api_url
+except ModuleNotFoundError:
+    from client.service_urls import resolve_agent_api_url, resolve_workspace_api_url
+
 DEFAULT_UPLOAD_DIR = os.environ.get("CLIENT_DEFAULT_UPLOAD_DIR", "uploads")
 
 st.set_page_config(page_title="DeepAgents Platform", layout="wide")
@@ -35,7 +38,7 @@ def api_delete(url: str, **kwargs: Any) -> Any:
 
 def load_threads() -> list[dict[str, Any]]:
     try:
-        return api_get(f"{AGENT_API_URL}/v1/threads")
+        return api_get(f"{resolve_agent_api_url()}/v1/threads")
     except Exception as exc:  # noqa: BLE001
         st.sidebar.error(f"Failed to load threads: {exc}")
         return []
@@ -43,7 +46,7 @@ def load_threads() -> list[dict[str, Any]]:
 
 def load_messages(thread_id: str) -> list[dict[str, Any]]:
     try:
-        return api_get(f"{AGENT_API_URL}/v1/threads/{thread_id}/messages")
+        return api_get(f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages")
     except Exception as exc:  # noqa: BLE001
         st.error(f"Failed to load messages: {exc}")
         return []
@@ -51,7 +54,7 @@ def load_messages(thread_id: str) -> list[dict[str, Any]]:
 
 def load_files(path: str) -> list[dict[str, Any]]:
     try:
-        return api_get(f"{WORKSPACE_API_URL}/v1/files", params={"path": path})
+        return api_get(f"{resolve_workspace_api_url()}/v1/files", params={"path": path})
     except Exception as exc:  # noqa: BLE001
         st.error(f"Failed to load files: {exc}")
         return []
@@ -63,8 +66,11 @@ if "thread_id" not in st.session_state:
 with st.sidebar:
     st.subheader("Threads")
     if st.button("New Thread", use_container_width=True):
-        thread = api_post(f"{AGENT_API_URL}/v1/threads")
-        st.session_state.thread_id = thread["thread_id"]
+        try:
+            thread = api_post(f"{resolve_agent_api_url()}/v1/threads")
+            st.session_state.thread_id = thread["thread_id"]
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Failed to create thread: {exc}")
 
     threads = load_threads()
     if threads:
@@ -95,7 +101,7 @@ with st.sidebar:
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")}
         data = {"destination": upload_dir}
         try:
-            result = api_post(f"{WORKSPACE_API_URL}/v1/files", files=files, data=data)
+            result = api_post(f"{resolve_workspace_api_url()}/v1/files", files=files, data=data)
             st.success(f"Uploaded to {result['path']}")
         except Exception as exc:  # noqa: BLE001
             st.error(f"Upload failed: {exc}")
@@ -127,7 +133,7 @@ with left:
                 with st.spinner("Running agent..."):
                     try:
                         response = api_post(
-                            f"{AGENT_API_URL}/v1/threads/{thread_id}/messages",
+                            f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages",
                             json={"message": prompt},
                         )
                         st.markdown(response["reply"])
@@ -151,7 +157,7 @@ with right:
             try:
                 delete_params = {"recursive": "true"} if entry["is_dir"] else None
                 api_delete(
-                    f"{WORKSPACE_API_URL}/v1/files/{entry['path'].lstrip('/')}",
+                    f"{resolve_workspace_api_url()}/v1/files/{entry['path'].lstrip('/')}",
                     params=delete_params,
                 )
                 st.rerun()

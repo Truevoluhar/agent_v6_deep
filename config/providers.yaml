@@ -18,3 +18,9 @@ providers:
     temperature: 0
     timeout_seconds: 180
     max_retries: 2
+    tls_verify: ${VLLM_TLS_VERIFY:-true}
+    tls_ca_file: ${VLLM_CA_FILE:-}
+    tls_ca_path: ${VLLM_CA_PATH:-}
+    tls_client_cert_file: ${VLLM_CLIENT_CERT_FILE:-}
+    tls_client_key_file: ${VLLM_CLIENT_KEY_FILE:-}
+    tls_client_key_password: ${VLLM_CLIENT_KEY_PASSWORD:-}

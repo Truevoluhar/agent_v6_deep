@@ -72,6 +72,7 @@ services:
       - ./data:/data
       - ./config:/app/config:ro
       - ./skills:/app/skills:ro
+      - ./certs:/certs:ro
       - ./workspace_seed:/seed:ro
     network_mode: host
     dns:
@@ -101,8 +102,10 @@ services:
     env_file:
       - .env
     environment:
-      AGENT_API_URL: http://host.docker.internal:8080
-      WORKSPACE_API_URL: http://host.docker.internal:8090
+      AGENT_API_URL: http://agent-api:8080
+      AGENT_API_FALLBACK_URLS: http://host.docker.internal:8080
+      WORKSPACE_API_URL: http://workspace-api:8090
+      WORKSPACE_API_FALLBACK_URLS: http://host.docker.internal:8090
       AGENT_DATA_ROOT: /data
     volumes:
       - ./data:/data
