@@ -90,15 +90,16 @@ def download_file(file_path: str) -> FileResponse:
 
 
 @app.delete("/v1/files/{file_path:path}")
-def delete_file(file_path: str) -> dict[str, str]:
+def delete_file(file_path: str, recursive: bool = False) -> dict[str, object]:
     ensure_workspace()
     try:
-        target = WORKSPACE.resolve_path(file_path)
+        return WORKSPACE.delete_path(file_path, recursive=recursive)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
-    if not target.exists():
+    except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="File not found.")
-    if target.is_dir():
-        raise HTTPException(status_code=400, detail="Recursive directory deletion is not supported.")
-    target.unlink()
-    return {"status": "deleted"}
+    except OSError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Directory deletion requires recursive=true when the directory is not empty.",
+        ) from exc

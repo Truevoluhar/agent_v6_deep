@@ -147,10 +147,13 @@ with right:
         cols = st.columns([4, 2, 1])
         cols[0].write(entry["path"])
         cols[1].write("dir" if entry["is_dir"] else f"{entry.get('size', 0)} bytes")
-        if not entry["is_dir"]:
-            if cols[2].button("Delete", key=f"delete:{entry['path']}"):
-                try:
-                    api_delete(f"{WORKSPACE_API_URL}/v1/files/{entry['path'].lstrip('/')}")
-                    st.rerun()
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Delete failed: {exc}")
+        if cols[2].button("Delete", key=f"delete:{entry['path']}"):
+            try:
+                delete_params = {"recursive": "true"} if entry["is_dir"] else None
+                api_delete(
+                    f"{WORKSPACE_API_URL}/v1/files/{entry['path'].lstrip('/')}",
+                    params=delete_params,
+                )
+                st.rerun()
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Delete failed: {exc}")

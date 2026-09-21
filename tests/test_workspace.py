@@ -42,3 +42,17 @@ def test_workspace_manager_file_operations(tmp_path: Path) -> None:
 
     deleted = workspace.delete_path("/exports/final.txt")
     assert deleted["deleted"]["path"] == "/exports/final.txt"
+
+
+def test_workspace_manager_recursive_directory_delete(tmp_path: Path) -> None:
+    workspace = WorkspaceManager(tmp_path)
+    workspace.ensure_layout()
+
+    workspace.write_text("/analysis/nested/deeper/report.txt", "hello\n")
+
+    with pytest.raises(OSError):
+        workspace.delete_path("/analysis/nested")
+
+    deleted = workspace.delete_path("/analysis/nested", recursive=True)
+    assert deleted["deleted"]["path"] == "/analysis/nested"
+    assert not workspace.resolve_path("/analysis/nested").exists()
