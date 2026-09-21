@@ -1,0 +1,5 @@
+{
+  "appName": "bundle-sample",
+  "enabled": true,
+  "retries": 2
+}

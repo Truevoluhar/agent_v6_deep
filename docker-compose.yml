@@ -1,0 +1,131 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app
+
+  workspace-api:
+    build:
+      context: .
+      dockerfile: workspace_api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      AGENT_DATA_ROOT: /data
+      WORKSPACE_ROOT: /data/agent_workspace
+    volumes:
+      - ./data:/data
+    ports:
+      - "8090:8090"
+    dns:
+      - 168.63.129.16
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app
+
+  agent-api:
+    build:
+      context: .
+      dockerfile: agent_api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PROVIDERS_CONFIG_PATH: /app/config/providers.yaml
+      AGENT_DATA_ROOT: /data
+      WORKSPACE_ROOT: /data/agent_workspace
+      SESSION_ROOT: /data/session
+      MEMORY_ROOT: /data/memory
+      RESOURCES_ROOT: /data/resources
+      RUNS_ROOT: /data/runs
+      SKILLS_ROOT: /app/skills
+      DATABASE_URL: postgresql://deepagents:deepagents@127.0.0.1:5432/deepagents
+    volumes:
+      - ./data:/data
+      - ./config:/app/config:ro
+      - ./skills:/app/skills:ro
+      - ./workspace_seed:/seed:ro
+    network_mode: host
+    dns:
+      - 168.63.129.16
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      workspace-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      AGENT_API_URL: http://host.docker.internal:8080
+      WORKSPACE_API_URL: http://workspace-api:8090
+      AGENT_DATA_ROOT: /data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8501:8501"
+    dns:
+      - 168.63.129.16
+    depends_on:
+      agent-api:
+        condition: service_healthy
+      workspace-api:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app
+
+networks:
+  app:
+
+volumes:
+  postgres_data:

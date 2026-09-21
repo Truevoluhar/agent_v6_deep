@@ -1,0 +1,5 @@
+steps:
+  - name: install
+    run: npm ci
+  - name: test
+    run: npm test

@@ -1,0 +1,20 @@
+active_provider: ${ACTIVE_PROVIDER:-openai}
+
+providers:
+  openai:
+    type: openai_compatible
+    model: gpt-5.5
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0
+    timeout_seconds: 180
+    max_retries: 3
+
+  vllm:
+    type: openai_compatible
+    model: openai/gpt-oss-120b
+    base_url: ${VLLM_BASE_URL:-http://host.docker.internal:8000/v1}
+    api_key: ${VLLM_API_KEY:-dummy}
+    temperature: 0
+    timeout_seconds: 180
+    max_retries: 2
