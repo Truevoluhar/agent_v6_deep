@@ -36,6 +36,14 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
                 "    temperature: 0",
                 "    timeout_seconds: 90",
                 "    max_retries: 4",
+                "  bifrost:",
+                "    type: bifrost_gateway",
+                "    model: ${BIFROST_MODEL:-openai/gpt-4o-mini}",
+                "    base_url: ${BIFROST_BASE_URL:-http://host.docker.internal:8080/openai}",
+                "    api_key: ${BIFROST_API_KEY:-dummy-key}",
+                "    temperature: 0",
+                "    timeout_seconds: 60",
+                "    max_retries: 2",
                 "  vllm:",
                 "    type: openai_compatible",
                 "    model: vllm-test",
@@ -81,6 +89,23 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
     assert openai_config.provider.tls_ca_file is None
     assert openai_config.provider.tls_client_cert_file is None
     assert openai_config.provider.tls_client_key_file is None
+
+    bifrost_config = load_config(
+        config_path=config_path,
+        env={
+            "ACTIVE_PROVIDER": "bifrost",
+            "BIFROST_BASE_URL": "http://bifrost.internal:8080/openai",
+            "BIFROST_MODEL": "openai/gpt-4o-mini",
+            "BIFROST_API_KEY": "dummy-key",
+        },
+    )
+    assert bifrost_config.active_provider == "bifrost"
+    assert bifrost_config.provider.type == "bifrost_gateway"
+    assert bifrost_config.provider.base_url == "http://bifrost.internal:8080/openai"
+    assert bifrost_config.provider.model == "openai/gpt-4o-mini"
+    assert bifrost_config.provider.api_key == "dummy-key"
+    assert bifrost_config.provider.tls_verify is True
+    assert bifrost_config.provider.tls_ca_file is None
 
     vllm_config = load_config(
         config_path=config_path,

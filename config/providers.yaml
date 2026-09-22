@@ -10,6 +10,15 @@ providers:
     timeout_seconds: 180
     max_retries: 3
 
+  bifrost:
+    type: bifrost_gateway
+    model: ${BIFROST_MODEL:-openai/gpt-4o-mini}
+    base_url: ${BIFROST_BASE_URL:-http://host.docker.internal:8080/openai}
+    api_key: ${BIFROST_API_KEY:-dummy-key}
+    temperature: 0
+    timeout_seconds: 180
+    max_retries: 2
+
   vllm:
     type: openai_compatible
     model: openai/gpt-oss-120b

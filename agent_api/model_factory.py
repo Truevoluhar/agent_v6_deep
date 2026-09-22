@@ -9,7 +9,7 @@ from agent_api.tls import build_ssl_context, configure_process_tls
 def build_chat_model(provider: ProviderConfig):
     from langchain_openai import ChatOpenAI
 
-    if provider.type != "openai_compatible":
+    if provider.type not in {"openai_compatible", "bifrost_gateway"}:
         raise ValueError(f"Unsupported provider type: {provider.type}")
 
     configure_process_tls(provider)

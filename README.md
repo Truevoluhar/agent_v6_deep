@@ -42,7 +42,18 @@ VLLM_BASE_URL=http://your-vllm-host:8000/v1
 VLLM_API_KEY=dummy
 ```
 
+Or:
+
+```dotenv
+ACTIVE_PROVIDER=bifrost
+BIFROST_BASE_URL=http://your-bifrost-host:8080/openai
+BIFROST_MODEL=openai/gpt-4o-mini
+BIFROST_API_KEY=dummy-key
+```
+
 OpenAI needs no certificate files or custom TLS settings.
+
+Bifrost also needs no extra certificate settings in the local/private setup you described. Point the OpenAI-compatible client at the gateway's `/openai` base URL and keep the upstream provider keys inside Bifrost.
 
 For private vLLM TLS or mTLS gateways, place your certificate files in the repo-local `certs/` directory and set the vLLM-specific options in `.env`:
 
