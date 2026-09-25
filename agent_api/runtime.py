@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ class AgentRuntime:
         ):
             root.mkdir(parents=True, exist_ok=True)
         _seed_memory(workspace)
+        _seed_skills(workspace, config.agent.skills_root)
         shell_env = {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
             "HOME": str(config.agent.workspace_root / ".agent" / "home"),
@@ -128,3 +130,22 @@ def _seed_memory(workspace: WorkspaceManager) -> None:
     target = workspace.resolve_path("/.agent/AGENTS.md")
     if seed.exists() and not target.exists():
         target.write_text(seed.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def _seed_skills(
+    workspace: WorkspaceManager,
+    skills_root: str,
+    source_root: Path | None = None,
+) -> None:
+    source_root = source_root or Path("/app/skills")
+    if not source_root.exists():
+        return
+
+    target_root = workspace.resolve_path(skills_root)
+    target_root.mkdir(parents=True, exist_ok=True)
+
+    for skill_dir in source_root.iterdir():
+        if not skill_dir.is_dir():
+            continue
+        target_dir = target_root / skill_dir.name
+        shutil.copytree(skill_dir, target_dir, dirs_exist_ok=True)

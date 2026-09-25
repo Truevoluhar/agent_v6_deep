@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 import yaml
@@ -133,7 +133,7 @@ def load_config(
     memory_root = Path(env_values.get("MEMORY_ROOT", str(data_root / "memory")))
     resources_root = Path(env_values.get("RESOURCES_ROOT", str(data_root / "resources")))
     runs_root = Path(env_values.get("RUNS_ROOT", str(data_root / "runs")))
-    skills_root = env_values.get("SKILLS_ROOT", "/app/skills")
+    skills_root = env_values.get("SKILLS_ROOT", "/.agent/skills")
     enabled_toolkits = [
         item.strip()
         for item in env_values.get("AGENT_ENABLED_TOOLKITS", "filesystem,shell").split(",")
