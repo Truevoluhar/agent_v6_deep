@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from agent_api.config import load_config
+from agent_api.model_factory import validate_strict_response_schema
 from agent_api.runtime import AgentRuntime
 from agent_api.workspace import WorkspaceEntry
 
 THREAD_LOCK = threading.Lock()
+LOGGER = logging.getLogger(__name__)
 
 
 class ThreadInfo(BaseModel):
@@ -28,6 +31,8 @@ class ThreadInfo(BaseModel):
 
 class MessageRequest(BaseModel):
     message: str = Field(..., min_length=1)
+    response_format: Literal["json"] | None = None
+    response_schema: dict[str, Any] | None = None
 
 
 class MessageRecord(BaseModel):
@@ -212,15 +217,35 @@ def get_thread_messages(thread_id: str) -> list[MessageRecord]:
 @app.post("/v1/threads/{thread_id}/messages", response_model=MessageResponse)
 def post_thread_message(thread_id: str, request: MessageRequest) -> MessageResponse:
     runtime = get_runtime()
-    info = ensure_thread(runtime, thread_id, first_message=request.message)
-
-    user_message = MessageRecord(role="user", content=request.message, created_at=utc_now())
-    append_message(runtime, thread_id, user_message)
-
-    with THREAD_LOCK:
-        result = runtime.invoke(thread_id=thread_id, message=request.message)
+    if request.response_format and request.response_schema is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="Choose either response_format or response_schema, not both.",
+        )
+    if request.response_schema is not None:
+        try:
+            validate_strict_response_schema(request.response_schema)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        with THREAD_LOCK:
+            result = runtime.invoke(
+                thread_id=thread_id,
+                message=request.message,
+                response_format=request.response_format,
+                response_schema=request.response_schema,
+            )
+    except Exception as exc:
+        LOGGER.exception("Agent invocation failed for thread %s", thread_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Agent invocation failed. Check the agent-api logs.",
+        ) from exc
 
     reply = extract_reply(result)
+    info = ensure_thread(runtime, thread_id, first_message=request.message)
+    user_message = MessageRecord(role="user", content=request.message, created_at=utc_now())
+    append_message(runtime, thread_id, user_message)
     assistant_message = MessageRecord(role="assistant", content=reply, created_at=utc_now())
     append_message(runtime, thread_id, assistant_message)
 

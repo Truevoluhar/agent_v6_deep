@@ -1,3 +1,8 @@
+---
+name: file-analysis
+description: Inspect uploaded files and large documents, summarizing findings and assumptions.
+---
+
 # File Analysis
 
 Use this skill when the user asks for targeted inspection of uploaded files, large documents, or mixed project artifacts.

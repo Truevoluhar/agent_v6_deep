@@ -1,3 +1,8 @@
+---
+name: code-review
+description: Review code changes for defects, regressions, security risks, and missing tests.
+---
+
 # Code Review
 
 Use this skill for repository review, patch review, or change-risk analysis.

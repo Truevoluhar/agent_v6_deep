@@ -68,6 +68,24 @@ Set `VLLM_TLS_VERIFY=false` only when you intentionally want to disable certific
 
 Provider definitions live in [config/providers.yaml](/workspaces/agent_v6_deep/config/providers.yaml).
 
+## Structured responses
+
+In the chat UI, select **JSON Schema** and edit the schema for the response. The API accepts the schema on a per-message basis:
+
+```json
+{
+  "message": "Summarize the report",
+  "response_schema": {
+    "type": "object",
+    "properties": {"summary": {"type": "string"}},
+    "required": ["summary"],
+    "additionalProperties": false
+  }
+}
+```
+
+The agent sends this using strict JSON Schema output mode through the configured OpenAI-compatible provider. Strict mode requires every object property to be listed in `required` and `additionalProperties` to be `false`. Schema adherence depends on the routed model/provider supporting structured outputs; refusals and incomplete responses may not match the schema.
+
 ## Persistence
 
 Persistent data lives in the repo-local `data/` folder, following the same broad shape as `agent_v5_1`:

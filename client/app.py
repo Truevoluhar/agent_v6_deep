@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -12,6 +13,12 @@ except ModuleNotFoundError:
     from client.service_urls import resolve_agent_api_url, resolve_workspace_api_url
 
 DEFAULT_UPLOAD_DIR = os.environ.get("CLIENT_DEFAULT_UPLOAD_DIR", "uploads")
+DEFAULT_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {"answer": {"type": "string"}},
+    "required": ["answer"],
+    "additionalProperties": False,
+}
 
 st.set_page_config(page_title="DeepAgents Platform", layout="wide")
 st.title("DeepAgents Platform")
@@ -121,6 +128,18 @@ with left:
     if thread_id is None:
         st.info("Create a thread to begin.")
     else:
+        response_format_label = st.selectbox("Response format", ["Default", "JSON Schema"])
+        response_schema_text = None
+        if response_format_label == "JSON Schema":
+            response_schema_text = st.text_area(
+                "JSON Schema",
+                value=json.dumps(DEFAULT_RESPONSE_SCHEMA, indent=2),
+                height=220,
+            )
+            st.caption(
+                "Strict mode requires every declared property and `additionalProperties: false` "
+                "on each object."
+            )
         for message in load_messages(thread_id):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -132,12 +151,23 @@ with left:
             with st.chat_message("assistant"):
                 with st.spinner("Running agent..."):
                     try:
+                        request_payload = {"message": prompt}
+                        if response_schema_text is not None:
+                            response_schema = json.loads(response_schema_text)
+                            if not isinstance(response_schema, dict):
+                                raise ValueError("The schema must be a JSON object.")
+                            request_payload["response_schema"] = response_schema
                         response = api_post(
                             f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages",
-                            json={"message": prompt},
+                            json=request_payload,
                         )
-                        st.markdown(response["reply"])
+                        if response_schema_text is not None:
+                            st.code(response["reply"], language="json")
+                        else:
+                            st.markdown(response["reply"])
                         st.caption(f"{response['provider']} | {response['model']}")
+                    except (json.JSONDecodeError, ValueError) as exc:
+                        st.error(f"Invalid JSON Schema: {exc}")
                     except Exception as exc:  # noqa: BLE001
                         st.error(f"Agent request failed: {exc}")
             st.rerun()

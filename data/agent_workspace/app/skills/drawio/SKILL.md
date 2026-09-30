@@ -1,3 +1,8 @@
+---
+name: drawio
+description: Create and validate editable Draw.io architecture or workflow diagrams.
+---
+
 # Draw.io
 
 Use this skill when the user wants an editable architecture or flow diagram.

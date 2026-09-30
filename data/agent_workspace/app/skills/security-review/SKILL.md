@@ -1,3 +1,8 @@
+---
+name: security-review
+description: Perform an authorized defensive security review of code, dependencies, and deployments.
+---
+
 # Security Review
 
 Use this skill for authorized defensive vulnerability review and remediation planning.

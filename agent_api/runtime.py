@@ -60,16 +60,26 @@ class AgentRuntime:
             tool_collection=tool_collection,
         )
 
-    def invoke(self, thread_id: str, message: str) -> Any:
+    def invoke(
+        self,
+        thread_id: str,
+        message: str,
+        response_format: str | None = None,
+        response_schema: dict[str, Any] | None = None,
+    ) -> Any:
         from deepagents import create_deep_agent
         from deepagents.backends import LocalShellBackend
 
         from agent_api.model_factory import build_chat_model
 
         agent_kwargs = {
-            "model": build_chat_model(self.config.provider),
+            "model": build_chat_model(
+                self.config.provider,
+                response_format=response_format,
+                response_schema=response_schema,
+            ),
             "tools": self.tool_collection.tools,
-            "system_prompt": self.build_system_prompt(),
+            "system_prompt": self.build_system_prompt(response_format=response_format),
             "backend": LocalShellBackend(
                 root_dir=self.config.agent.workspace_root,
                 virtual_mode=True,
@@ -109,20 +119,26 @@ class AgentRuntime:
             },
         )
 
-    def build_system_prompt(self) -> str:
+    def build_system_prompt(self, response_format: str | None = None) -> str:
         toolkit_lines = []
         for toolkit in self.tool_collection.toolkits:
             toolkit_lines.append(
                 f"- {toolkit['name']}: {toolkit['description']} Tools: {', '.join(toolkit['tools'])}."
             )
         toolkit_text = "\n".join(toolkit_lines)
-        return (
+        prompt = (
             f"{self.config.agent.system_prompt}\n\n"
             "Custom toolkits available in addition to the DeepAgents built-ins:\n"
             f"{toolkit_text}\n\n"
             "Use `run_shell` when you need structured stdout/stderr/return-code output. "
             "Use the background process tools for long-running commands and log inspection."
         )
+        if response_format == "json":
+            prompt += (
+                "\n\nFinal response format: JSON. Return exactly one valid JSON value as the final "
+                "response. Do not wrap it in Markdown fences or include commentary outside the JSON."
+            )
+        return prompt
 
 
 def _seed_memory(workspace: WorkspaceManager) -> None:
