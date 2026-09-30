@@ -12,6 +12,26 @@ from agent_api.tools.registry import ToolCollection, build_tool_collection
 from agent_api.workspace import WorkspaceManager
 
 
+def _last_message_text(result: Any) -> str:
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        messages = result.get("messages")
+        if isinstance(messages, list):
+            for message in reversed(messages):
+                content = getattr(message, "content", None)
+                if isinstance(content, str) and content.strip():
+                    return content
+                if isinstance(message, dict):
+                    raw_content = message.get("content")
+                    if isinstance(raw_content, str) and raw_content.strip():
+                        return raw_content
+    content = getattr(result, "content", None)
+    if isinstance(content, str) and content.strip():
+        return content
+    return str(result)
+
+
 @dataclass
 class AgentRuntime:
     config: AppConfig
@@ -72,14 +92,15 @@ class AgentRuntime:
 
         from agent_api.model_factory import build_chat_model
 
+        # The agent's own model must stay unconstrained: DeepAgents relies on multi-turn
+        # tool calls (skills, file writes, sub-agents) to do real work, and forcing a
+        # strict JSON-schema response on every turn makes the model skip tool use and
+        # emit a schema-shaped guess immediately. Structured output is applied afterwards,
+        # in a separate formatting pass over the agent's finished answer.
         agent_kwargs = {
-            "model": build_chat_model(
-                self.config.provider,
-                response_format=response_format,
-                response_schema=response_schema,
-            ),
+            "model": build_chat_model(self.config.provider),
             "tools": self.tool_collection.tools,
-            "system_prompt": self.build_system_prompt(response_format=response_format),
+            "system_prompt": self.build_system_prompt(),
             "backend": LocalShellBackend(
                 root_dir=self.config.agent.workspace_root,
                 virtual_mode=True,
@@ -100,24 +121,53 @@ class AgentRuntime:
                     **agent_kwargs,
                     checkpointer=checkpointer,
                 )
-                return agent.invoke(
+                result = agent.invoke(
                     {"messages": [{"role": "user", "content": message}]},
                     config={
                         "configurable": {"thread_id": thread_id},
                         "recursion_limit": self.config.agent.recursion_limit,
                     },
                 )
+        else:
+            agent = create_deep_agent(
+                **agent_kwargs,
+            )
+            result = agent.invoke(
+                {"messages": [{"role": "user", "content": message}]},
+                config={
+                    "configurable": {"thread_id": thread_id},
+                    "recursion_limit": self.config.agent.recursion_limit,
+                },
+            )
 
-        agent = create_deep_agent(
-            **agent_kwargs,
+        if response_format is None and response_schema is None:
+            return result
+
+        return self._format_structured_reply(
+            raw_reply=_last_message_text(result),
+            response_format=response_format,
+            response_schema=response_schema,
         )
-        return agent.invoke(
-            {"messages": [{"role": "user", "content": message}]},
-            config={
-                "configurable": {"thread_id": thread_id},
-                "recursion_limit": self.config.agent.recursion_limit,
-            },
+
+    def _format_structured_reply(
+        self,
+        raw_reply: str,
+        response_format: str | None,
+        response_schema: dict[str, Any] | None,
+    ) -> Any:
+        from agent_api.model_factory import build_chat_model
+
+        structuring_model = build_chat_model(
+            self.config.provider,
+            response_format=response_format,
+            response_schema=response_schema,
         )
+        prompt = (
+            "Restate the following agent answer to satisfy the required response format. "
+            "Do not invent new information; only reformat what is already present below.\n\n"
+            f"Agent answer:\n{raw_reply}"
+        )
+        return structuring_model.invoke([{"role": "user", "content": prompt}])
 
     def build_system_prompt(self, response_format: str | None = None) -> str:
         toolkit_lines = []
