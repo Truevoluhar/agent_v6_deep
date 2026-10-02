@@ -101,6 +101,22 @@ class AgentRuntime:
         api_key = self.config.agent.bifrost_mcp_api_key
         if api_key:
             connection["headers"] = {"Authorization": f"Bearer {api_key}"}
+        if not self.config.agent.bifrost_mcp_tls_verify:
+            import httpx
+
+            def make_mcp_http_client(
+                headers: dict[str, str] | None = None,
+                timeout: Any = None,
+                auth: Any = None,
+            ) -> Any:
+                return httpx.AsyncClient(
+                    verify=False,
+                    headers=headers,
+                    timeout=timeout,
+                    auth=auth,
+                )
+
+            connection["httpx_client_factory"] = make_mcp_http_client
 
         self.mcp_client = MultiServerMCPClient(
             {"bifrost": connection},

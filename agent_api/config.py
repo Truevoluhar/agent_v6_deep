@@ -48,6 +48,7 @@ class AgentConfig:
     bifrost_mcp_enabled: bool = False
     bifrost_mcp_url: str | None = None
     bifrost_mcp_api_key: str | None = None
+    bifrost_mcp_tls_verify: bool = False
 
 
 @dataclass(frozen=True)
@@ -156,6 +157,10 @@ def load_config(
         env_values.get("BIFROST_MCP_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"}
     )
+    bifrost_mcp_tls_verify = (
+        env_values.get("BIFROST_MCP_TLS_VERIFY", "false").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
     agent = AgentConfig(
         data_root=data_root,
         workspace_root=workspace_root,
@@ -181,5 +186,6 @@ def load_config(
         bifrost_mcp_enabled=bifrost_mcp_enabled,
         bifrost_mcp_url=optional_string(env_values.get("BIFROST_MCP_URL")),
         bifrost_mcp_api_key=optional_string(env_values.get("BIFROST_MCP_API_KEY")),
+        bifrost_mcp_tls_verify=bifrost_mcp_tls_verify,
     )
     return AppConfig(active_provider=active_provider, provider=provider, agent=agent)
