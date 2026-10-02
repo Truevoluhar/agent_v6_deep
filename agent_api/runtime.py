@@ -145,10 +145,12 @@ class AgentRuntime:
         }
 
         if self.config.agent.use_checkpointer and self.config.agent.database_url:
-            from langgraph.checkpoint.postgres import PostgresSaver
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-            with PostgresSaver.from_conn_string(self.config.agent.database_url) as checkpointer:
-                checkpointer.setup()
+            async with AsyncPostgresSaver.from_conn_string(
+                self.config.agent.database_url
+            ) as checkpointer:
+                await checkpointer.setup()
                 agent = create_deep_agent(
                     **agent_kwargs,
                     checkpointer=checkpointer,

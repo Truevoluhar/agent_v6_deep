@@ -191,6 +191,16 @@ async def initialize_mcp_with_retries(runtime: AgentRuntime) -> None:
             )
         except asyncio.CancelledError:
             raise
+        except (ModuleNotFoundError, ValueError) as exc:
+            missing_module = getattr(exc, "name", None)
+            runtime.mcp_status = "error"
+            runtime.mcp_error = (
+                f"{type(exc).__name__}: {missing_module}"
+                if missing_module
+                else type(exc).__name__
+            )
+            LOGGER.error("Bifrost MCP tool discovery cannot start (%s).", runtime.mcp_error)
+            return
         except Exception as exc:
             runtime.mcp_status = "retrying"
             runtime.mcp_error = type(exc).__name__
