@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +39,8 @@ class AgentRuntime:
     process_manager: BackgroundProcessManager
     shell_env: dict[str, str]
     tool_collection: ToolCollection
+    mcp_client: Any = None
+    mcp_tools: list[Any] = field(default_factory=list)
 
     @classmethod
     def create(cls, config: AppConfig) -> "AgentRuntime":
@@ -80,7 +82,35 @@ class AgentRuntime:
             tool_collection=tool_collection,
         )
 
-    def invoke(
+    async def initialize_mcp(self) -> None:
+        if not self.config.agent.bifrost_mcp_enabled:
+            return
+
+        url = self.config.agent.bifrost_mcp_url
+        if not url:
+            raise ValueError("BIFROST_MCP_ENABLED=true but BIFROST_MCP_URL is empty.")
+
+        from langchain_mcp_adapters.client import MultiServerMCPClient
+
+        connection: dict[str, Any] = {
+            "url": url,
+            "transport": "streamable_http",
+        }
+        api_key = self.config.agent.bifrost_mcp_api_key
+        if api_key:
+            connection["headers"] = {"Authorization": f"Bearer {api_key}"}
+
+        self.mcp_client = MultiServerMCPClient(
+            {"bifrost": connection},
+            tool_name_prefix=True,
+            handle_tool_errors=True,
+        )
+        self.mcp_tools = await self.mcp_client.get_tools()
+
+    def all_tools(self) -> list[Any]:
+        return [*self.tool_collection.tools, *self.mcp_tools]
+
+    async def invoke(
         self,
         thread_id: str,
         message: str,
@@ -99,7 +129,7 @@ class AgentRuntime:
         # in a separate formatting pass over the agent's finished answer.
         agent_kwargs = {
             "model": build_chat_model(self.config.provider),
-            "tools": self.tool_collection.tools,
+            "tools": self.all_tools(),
             "system_prompt": self.build_system_prompt(),
             "backend": LocalShellBackend(
                 root_dir=self.config.agent.workspace_root,
@@ -121,7 +151,7 @@ class AgentRuntime:
                     **agent_kwargs,
                     checkpointer=checkpointer,
                 )
-                result = agent.invoke(
+                result = await agent.ainvoke(
                     {"messages": [{"role": "user", "content": message}]},
                     config={
                         "configurable": {"thread_id": thread_id},
@@ -132,7 +162,7 @@ class AgentRuntime:
             agent = create_deep_agent(
                 **agent_kwargs,
             )
-            result = agent.invoke(
+            result = await agent.ainvoke(
                 {"messages": [{"role": "user", "content": message}]},
                 config={
                     "configurable": {"thread_id": thread_id},
@@ -143,13 +173,13 @@ class AgentRuntime:
         if response_format is None and response_schema is None:
             return result
 
-        return self._format_structured_reply(
+        return await self._format_structured_reply(
             raw_reply=_last_message_text(result),
             response_format=response_format,
             response_schema=response_schema,
         )
 
-    def _format_structured_reply(
+    async def _format_structured_reply(
         self,
         raw_reply: str,
         response_format: str | None,
@@ -167,7 +197,7 @@ class AgentRuntime:
             "Do not invent new information; only reformat what is already present below.\n\n"
             f"Agent answer:\n{raw_reply}"
         )
-        return structuring_model.invoke([{"role": "user", "content": prompt}])
+        return await structuring_model.ainvoke([{"role": "user", "content": prompt}])
 
     def build_system_prompt(self, response_format: str | None = None) -> str:
         toolkit_lines = []

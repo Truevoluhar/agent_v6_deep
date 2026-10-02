@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,7 +17,7 @@ from agent_api.model_factory import validate_strict_response_schema
 from agent_api.runtime import AgentRuntime
 from agent_api.workspace import WorkspaceEntry
 
-THREAD_LOCK = threading.Lock()
+THREAD_LOCK = asyncio.Lock()
 LOGGER = logging.getLogger(__name__)
 
 
@@ -170,8 +170,10 @@ def extract_reply(result: Any) -> str:
 
 
 @app.on_event("startup")
-def startup() -> None:
-    app.state.runtime = AgentRuntime.create(load_config())
+async def startup() -> None:
+    runtime = AgentRuntime.create(load_config())
+    await runtime.initialize_mcp()
+    app.state.runtime = runtime
 
 
 @app.get("/health")
@@ -215,7 +217,7 @@ def get_thread_messages(thread_id: str) -> list[MessageRecord]:
 
 
 @app.post("/v1/threads/{thread_id}/messages", response_model=MessageResponse)
-def post_thread_message(thread_id: str, request: MessageRequest) -> MessageResponse:
+async def post_thread_message(thread_id: str, request: MessageRequest) -> MessageResponse:
     runtime = get_runtime()
     if request.response_format and request.response_schema is not None:
         raise HTTPException(
@@ -228,8 +230,8 @@ def post_thread_message(thread_id: str, request: MessageRequest) -> MessageRespo
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
-        with THREAD_LOCK:
-            result = runtime.invoke(
+        async with THREAD_LOCK:
+            result = await runtime.invoke(
                 thread_id=thread_id,
                 message=request.message,
                 response_format=request.response_format,
@@ -269,7 +271,13 @@ def post_thread_message(thread_id: str, request: MessageRequest) -> MessageRespo
 @app.get("/v1/tools")
 def get_tools() -> dict[str, Any]:
     runtime = get_runtime()
-    return {"toolkits": runtime.tool_collection.toolkits}
+    return {
+        "toolkits": runtime.tool_collection.toolkits,
+        "mcp_tools": [
+            {"name": tool.name, "description": tool.description}
+            for tool in runtime.mcp_tools
+        ],
+    }
 
 
 @app.get("/v1/files", response_model=list[WorkspaceEntry])

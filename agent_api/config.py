@@ -45,6 +45,9 @@ class AgentConfig:
     recursion_limit: int
     shell_timeout_seconds: int
     database_url: str | None
+    bifrost_mcp_enabled: bool = False
+    bifrost_mcp_url: str | None = None
+    bifrost_mcp_api_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,10 @@ def load_config(
         "DATABASE_URL",
         "postgresql://deepagents:deepagents@postgres:5432/deepagents",
     ).strip() or None
+    bifrost_mcp_enabled = (
+        env_values.get("BIFROST_MCP_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
     agent = AgentConfig(
         data_root=data_root,
         workspace_root=workspace_root,
@@ -171,5 +178,8 @@ def load_config(
         recursion_limit=int(env_values.get("AGENT_RECURSION_LIMIT", "120")),
         shell_timeout_seconds=int(env_values.get("AGENT_SHELL_TIMEOUT_SECONDS", "120")),
         database_url=database_url,
+        bifrost_mcp_enabled=bifrost_mcp_enabled,
+        bifrost_mcp_url=optional_string(env_values.get("BIFROST_MCP_URL")),
+        bifrost_mcp_api_key=optional_string(env_values.get("BIFROST_MCP_API_KEY")),
     )
     return AppConfig(active_provider=active_provider, provider=provider, agent=agent)
