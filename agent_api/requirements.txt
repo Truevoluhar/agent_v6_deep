@@ -2,6 +2,7 @@ deepagents==0.7.15
 fastapi==0.116.1
 langchain-openai>=0.3,<0.4
 langchain-mcp-adapters>=0.1.14,<0.2
+mcp>=1.9.2,<2.0
 langgraph-checkpoint-postgres>=3,<4
 psycopg[binary]>=3.2,<4
 PyYAML==6.0.2
