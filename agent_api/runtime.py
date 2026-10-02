@@ -104,8 +104,6 @@ class AgentRuntime:
 
         self.mcp_client = MultiServerMCPClient(
             {"bifrost": connection},
-            tool_name_prefix=True,
-            handle_tool_errors=True,
         )
         self.mcp_tools = await self.mcp_client.get_tools()
 

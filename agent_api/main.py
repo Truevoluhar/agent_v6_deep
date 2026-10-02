@@ -203,7 +203,14 @@ async def initialize_mcp_with_retries(runtime: AgentRuntime) -> None:
             return
         except Exception as exc:
             runtime.mcp_status = "retrying"
-            runtime.mcp_error = type(exc).__name__
+            if isinstance(exc, TypeError):
+                detail = str(exc)
+                api_key = runtime.config.agent.bifrost_mcp_api_key
+                if api_key:
+                    detail = detail.replace(api_key, "[redacted]")
+                runtime.mcp_error = f"{type(exc).__name__}: {detail[:300]}"
+            else:
+                runtime.mcp_error = type(exc).__name__
             LOGGER.warning(
                 "Bifrost MCP tool discovery failed (%s); retrying in %s seconds.",
                 runtime.mcp_error,
