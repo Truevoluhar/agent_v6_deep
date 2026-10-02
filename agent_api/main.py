@@ -171,6 +171,17 @@ def extract_reply(result: Any) -> str:
     return str(result)
 
 
+def _exception_summary(exc: BaseException, secret: str | None = None) -> str:
+    if isinstance(exc, BaseExceptionGroup):
+        nested = " | ".join(_exception_summary(item, secret) for item in exc.exceptions)
+        return f"{type(exc).__name__}({nested})"
+
+    detail = str(exc)
+    if secret:
+        detail = detail.replace(secret, "[redacted]")
+    return f"{type(exc).__name__}: {detail}".rstrip(": ")
+
+
 @app.on_event("startup")
 async def startup() -> None:
     runtime = AgentRuntime.create(load_config())
@@ -203,14 +214,10 @@ async def initialize_mcp_with_retries(runtime: AgentRuntime) -> None:
             return
         except Exception as exc:
             runtime.mcp_status = "retrying"
-            if isinstance(exc, TypeError):
-                detail = str(exc)
-                api_key = runtime.config.agent.bifrost_mcp_api_key
-                if api_key:
-                    detail = detail.replace(api_key, "[redacted]")
-                runtime.mcp_error = f"{type(exc).__name__}: {detail[:300]}"
-            else:
-                runtime.mcp_error = type(exc).__name__
+            runtime.mcp_error = _exception_summary(
+                exc,
+                secret=runtime.config.agent.bifrost_mcp_api_key,
+            )[:1000]
             LOGGER.warning(
                 "Bifrost MCP tool discovery failed (%s); retrying in %s seconds.",
                 runtime.mcp_error,
