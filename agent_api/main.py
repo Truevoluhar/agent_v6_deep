@@ -19,6 +19,8 @@ from agent_api.workspace import WorkspaceEntry
 
 THREAD_LOCK = asyncio.Lock()
 LOGGER = logging.getLogger(__name__)
+MCP_DISCOVERY_TIMEOUT_SECONDS = 15
+MCP_RETRY_INTERVAL_SECONDS = 30
 
 
 class ThreadInfo(BaseModel):
@@ -172,8 +174,37 @@ def extract_reply(result: Any) -> str:
 @app.on_event("startup")
 async def startup() -> None:
     runtime = AgentRuntime.create(load_config())
-    await runtime.initialize_mcp()
     app.state.runtime = runtime
+    if runtime.config.agent.bifrost_mcp_enabled:
+        runtime.mcp_status = "connecting"
+        app.state.mcp_initialization_task = asyncio.create_task(
+            initialize_mcp_with_retries(runtime)
+        )
+
+
+async def initialize_mcp_with_retries(runtime: AgentRuntime) -> None:
+    while True:
+        try:
+            await asyncio.wait_for(
+                runtime.initialize_mcp(),
+                timeout=MCP_DISCOVERY_TIMEOUT_SECONDS,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            runtime.mcp_status = "retrying"
+            runtime.mcp_error = type(exc).__name__
+            LOGGER.warning(
+                "Bifrost MCP tool discovery failed (%s); retrying in %s seconds.",
+                runtime.mcp_error,
+                MCP_RETRY_INTERVAL_SECONDS,
+            )
+            await asyncio.sleep(MCP_RETRY_INTERVAL_SECONDS)
+        else:
+            runtime.mcp_status = "connected"
+            runtime.mcp_error = None
+            LOGGER.info("Loaded %s Bifrost MCP tools.", len(runtime.mcp_tools))
+            return
 
 
 @app.get("/health")
@@ -184,6 +215,7 @@ def health() -> dict[str, str]:
         "provider": runtime.config.active_provider,
         "model": runtime.config.provider.model,
         "toolkits": ",".join(runtime.config.agent.enabled_toolkits),
+        "mcp": runtime.mcp_status,
     }
 
 
@@ -273,6 +305,8 @@ def get_tools() -> dict[str, Any]:
     runtime = get_runtime()
     return {
         "toolkits": runtime.tool_collection.toolkits,
+        "mcp_status": runtime.mcp_status,
+        "mcp_error": runtime.mcp_error,
         "mcp_tools": [
             {"name": tool.name, "description": tool.description}
             for tool in runtime.mcp_tools

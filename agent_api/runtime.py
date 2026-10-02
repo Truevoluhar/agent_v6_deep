@@ -41,6 +41,8 @@ class AgentRuntime:
     tool_collection: ToolCollection
     mcp_client: Any = None
     mcp_tools: list[Any] = field(default_factory=list)
+    mcp_status: str = "disabled"
+    mcp_error: str | None = None
 
     @classmethod
     def create(cls, config: AppConfig) -> "AgentRuntime":
