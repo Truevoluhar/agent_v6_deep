@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import fnmatch
+import io
 import json
 import shutil
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -115,6 +117,31 @@ class WorkspaceManager:
         path = self.resolve_path(raw_path)
         path.mkdir(parents=True, exist_ok=True)
         return self.stat_path(raw_path)
+
+    def directory_zip(self, raw_path: str) -> tuple[str, bytes]:
+        target = self.resolve_path(raw_path)
+        if not target.exists():
+            raise FileNotFoundError(raw_path)
+        if not target.is_dir():
+            raise NotADirectoryError(raw_path)
+
+        archive_root = target.name or "workspace"
+        archive_buffer = io.BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(f"{archive_root}/", "")
+            for child in sorted(target.rglob("*"), key=lambda item: item.as_posix().lower()):
+                try:
+                    resolved_child = self.resolve_path(self.relative_path(child))
+                except ValueError:
+                    continue
+
+                archive_path = (PurePosixPath(archive_root) / child.relative_to(target)).as_posix()
+                if child.is_dir():
+                    archive.writestr(f"{archive_path.rstrip('/')}/", "")
+                elif child.is_file():
+                    archive.write(resolved_child, archive_path)
+
+        return f"{archive_root}.zip", archive_buffer.getvalue()
 
     def delete_path(self, raw_path: str, recursive: bool = False) -> dict[str, Any]:
         path = self.resolve_path(raw_path)

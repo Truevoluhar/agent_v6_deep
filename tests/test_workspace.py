@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -56,3 +58,22 @@ def test_workspace_manager_recursive_directory_delete(tmp_path: Path) -> None:
     deleted = workspace.delete_path("/analysis/nested", recursive=True)
     assert deleted["deleted"]["path"] == "/analysis/nested"
     assert not workspace.resolve_path("/analysis/nested").exists()
+
+
+def test_workspace_manager_archives_directory_tree(tmp_path: Path) -> None:
+    workspace = WorkspaceManager(tmp_path)
+    workspace.ensure_layout()
+    workspace.write_text("/projects/sample/nested/report.txt", "archive me")
+    workspace.make_directory("/projects/sample/empty")
+
+    filename, content = workspace.directory_zip("/projects/sample")
+
+    assert filename == "sample.zip"
+    with zipfile.ZipFile(BytesIO(content)) as archive:
+        assert set(archive.namelist()) == {
+            "sample/",
+            "sample/empty/",
+            "sample/nested/",
+            "sample/nested/report.txt",
+        }
+        assert archive.read("sample/nested/report.txt") == b"archive me"

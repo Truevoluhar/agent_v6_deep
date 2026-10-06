@@ -59,14 +59,6 @@ def load_messages(thread_id: str) -> list[dict[str, Any]]:
         return []
 
 
-def load_files(path: str) -> list[dict[str, Any]]:
-    try:
-        return api_get(f"{resolve_workspace_api_url()}/v1/files", params={"path": path})
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Datotek ni bilo mogoče naložiti: {exc}")
-        return []
-
-
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = None
 
@@ -113,10 +105,12 @@ with st.sidebar:
         except Exception as exc:  # noqa: BLE001
             st.error(f"Nalaganje ni uspelo: {exc}")
 
-    st.subheader("Delovni prostor")
-    browse_path = st.text_input("Pot za brskanje", value=st.session_state.get("browse_path", "/"))
-    if st.button("Osveži datoteke", use_container_width=True):
-        st.session_state["browse_path"] = browse_path
+    st.page_link(
+        "pages/workspace.py",
+        label="Odpri delovni prostor",
+        icon=":material/folder_open:",
+        use_container_width=True,
+    )
 
 
 thread_id = st.session_state.thread_id
@@ -173,23 +167,10 @@ with left:
             st.rerun()
 
 with right:
-    st.subheader("Datoteke delovnega prostora")
-    current_path = st.session_state.get("browse_path", "/")
-    st.caption(f"Prikaz mape `{current_path}`")
-    entries = load_files(current_path)
-    if not entries:
-        st.write("Ni najdenih datotek.")
-    for entry in entries:
-        cols = st.columns([4, 2, 1])
-        cols[0].write(entry["path"])
-        cols[1].write("mapa" if entry["is_dir"] else f"{entry.get('size', 0)} B")
-        if cols[2].button("Izbriši", key=f"delete:{entry['path']}"):
-            try:
-                delete_params = {"recursive": "true"} if entry["is_dir"] else None
-                api_delete(
-                    f"{resolve_workspace_api_url()}/v1/files/{entry['path'].lstrip('/')}",
-                    params=delete_params,
-                )
-                st.rerun()
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"Brisanje ni uspelo: {exc}")
+    st.subheader("Delovni prostor")
+    st.page_link(
+        "pages/workspace.py",
+        label="Pregled map in datotek",
+        icon=":material/folder_open:",
+        use_container_width=True,
+    )
