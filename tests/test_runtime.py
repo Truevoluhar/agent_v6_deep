@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -10,7 +11,9 @@ from agent_api.runtime import AgentRuntime, _seed_skills
 from agent_api.workspace import WorkspaceManager
 
 
-def test_seed_skills_copies_bundled_skills_into_workspace(tmp_path: Path) -> None:
+def test_seed_skills_copies_bundled_skills_without_preserving_metadata(
+    tmp_path: Path, monkeypatch
+) -> None:
     source_root = tmp_path / "app-skills"
     source_skill = source_root / "demo-skill"
     source_skill.mkdir(parents=True)
@@ -22,6 +25,10 @@ def test_seed_skills_copies_bundled_skills_into_workspace(tmp_path: Path) -> Non
     workspace = WorkspaceManager(tmp_path / "workspace")
     workspace.ensure_layout()
 
+    def reject_metadata_copy(*args, **kwargs):
+        raise PermissionError("Operation not permitted")
+
+    monkeypatch.setattr(shutil, "copystat", reject_metadata_copy)
     _seed_skills(workspace, "/.agent/skills", source_root=source_root)
 
     copied_skill = workspace.resolve_path("/.agent/skills/demo-skill/SKILL.md")

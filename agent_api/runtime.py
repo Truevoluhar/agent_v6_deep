@@ -262,4 +262,15 @@ def _seed_skills(
         if not skill_dir.is_dir():
             continue
         target_dir = target_root / skill_dir.name
-        shutil.copytree(skill_dir, target_dir, dirs_exist_ok=True)
+        _copy_skill_contents(skill_dir, target_dir)
+
+
+def _copy_skill_contents(source_dir: Path, target_dir: Path) -> None:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for source_path in source_dir.iterdir():
+        target_path = target_dir / source_path.name
+        if source_path.is_dir():
+            _copy_skill_contents(source_path, target_path)
+        else:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_path, target_path)

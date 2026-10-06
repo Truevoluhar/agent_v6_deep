@@ -20,9 +20,9 @@ DEFAULT_RESPONSE_SCHEMA = {
     "additionalProperties": False,
 }
 
-st.set_page_config(page_title="DeepAgents Platform", layout="wide")
-st.title("DeepAgents Platform")
-st.caption("Chat with the workflow service and browse the shared workspace.")
+st.set_page_config(page_title="ZPIZAgent platforma", layout="wide")
+st.title("ZPIZAgent platforma")
+st.caption("Pogovarjajte se z agentom in brskajte po deljenem delovnem prostoru.")
 
 
 def api_get(url: str, **kwargs: Any) -> Any:
@@ -47,7 +47,7 @@ def load_threads() -> list[dict[str, Any]]:
     try:
         return api_get(f"{resolve_agent_api_url()}/v1/threads")
     except Exception as exc:  # noqa: BLE001
-        st.sidebar.error(f"Failed to load threads: {exc}")
+        st.sidebar.error(f"Pogovorov ni bilo mogoče naložiti: {exc}")
         return []
 
 
@@ -55,7 +55,7 @@ def load_messages(thread_id: str) -> list[dict[str, Any]]:
     try:
         return api_get(f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages")
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Failed to load messages: {exc}")
+        st.error(f"Sporočil ni bilo mogoče naložiti: {exc}")
         return []
 
 
@@ -63,7 +63,7 @@ def load_files(path: str) -> list[dict[str, Any]]:
     try:
         return api_get(f"{resolve_workspace_api_url()}/v1/files", params={"path": path})
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Failed to load files: {exc}")
+        st.error(f"Datotek ni bilo mogoče naložiti: {exc}")
         return []
 
 
@@ -71,22 +71,22 @@ if "thread_id" not in st.session_state:
     st.session_state.thread_id = None
 
 with st.sidebar:
-    st.subheader("Threads")
-    if st.button("New Thread", use_container_width=True):
+    st.subheader("Pogovori")
+    if st.button("Nov pogovor", use_container_width=True):
         try:
             thread = api_post(f"{resolve_agent_api_url()}/v1/threads")
             st.session_state.thread_id = thread["thread_id"]
         except Exception as exc:  # noqa: BLE001
-            st.error(f"Failed to create thread: {exc}")
+            st.error(f"Pogovora ni bilo mogoče ustvariti: {exc}")
 
     threads = load_threads()
     if threads:
         thread_options = {
-            f"{item['thread_id']} | {item.get('title') or 'Untitled'}": item["thread_id"]
+            f"{item['thread_id']} | {item.get('title') or 'Brez naslova'}": item["thread_id"]
             for item in threads
         }
         selected = st.selectbox(
-            "Choose thread",
+            "Izberite pogovor",
             options=list(thread_options.keys()),
             index=0 if st.session_state.thread_id is None else next(
                 (
@@ -99,23 +99,23 @@ with st.sidebar:
         )
         st.session_state.thread_id = thread_options[selected]
     else:
-        st.info("No threads yet.")
+        st.info("Ni še nobenega pogovora.")
 
-    st.subheader("Upload")
-    upload_dir = st.text_input("Destination", value=DEFAULT_UPLOAD_DIR)
-    uploaded = st.file_uploader("Choose a file")
-    if st.button("Upload File", use_container_width=True, disabled=uploaded is None):
+    st.subheader("Nalaganje datotek")
+    upload_dir = st.text_input("Ciljna mapa", value=DEFAULT_UPLOAD_DIR)
+    uploaded = st.file_uploader("Izberite datoteko")
+    if st.button("Naloži datoteko", use_container_width=True, disabled=uploaded is None):
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")}
         data = {"destination": upload_dir}
         try:
             result = api_post(f"{resolve_workspace_api_url()}/v1/files", files=files, data=data)
-            st.success(f"Uploaded to {result['path']}")
+            st.success(f"Datoteka je naložena v {result['path']}")
         except Exception as exc:  # noqa: BLE001
-            st.error(f"Upload failed: {exc}")
+            st.error(f"Nalaganje ni uspelo: {exc}")
 
-    st.subheader("Workspace")
-    browse_path = st.text_input("Browse path", value=st.session_state.get("browse_path", "/"))
-    if st.button("Refresh Files", use_container_width=True):
+    st.subheader("Delovni prostor")
+    browse_path = st.text_input("Pot za brskanje", value=st.session_state.get("browse_path", "/"))
+    if st.button("Osveži datoteke", use_container_width=True):
         st.session_state["browse_path"] = browse_path
 
 
@@ -124,38 +124,38 @@ thread_id = st.session_state.thread_id
 left, right = st.columns([3, 2])
 
 with left:
-    st.subheader("Chat")
+    st.subheader("Klepet")
     if thread_id is None:
-        st.info("Create a thread to begin.")
+        st.info("Za začetek ustvarite pogovor.")
     else:
-        response_format_label = st.selectbox("Response format", ["Default", "JSON Schema"])
+        response_format_label = st.selectbox("Oblika odgovora", ["Privzeta", "Shema JSON"])
         response_schema_text = None
-        if response_format_label == "JSON Schema":
+        if response_format_label == "Shema JSON":
             response_schema_text = st.text_area(
-                "JSON Schema",
+                "Shema JSON",
                 value=json.dumps(DEFAULT_RESPONSE_SCHEMA, indent=2),
                 height=220,
             )
             st.caption(
-                "Strict mode requires every declared property and `additionalProperties: false` "
-                "on each object."
+                "Strogi način zahteva vse navedene lastnosti in nastavitev "
+                "`additionalProperties: false` pri vsakem objektu."
             )
         for message in load_messages(thread_id):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        prompt = st.chat_input("Ask the agent to work in the shared workspace")
+        prompt = st.chat_input("Napišite sporočilo agentu za delo v deljenem delovnem prostoru")
         if prompt:
             with st.chat_message("user"):
                 st.markdown(prompt)
             with st.chat_message("assistant"):
-                with st.spinner("Running agent..."):
+                with st.spinner("Agent izvaja opravilo ..."):
                     try:
                         request_payload = {"message": prompt}
                         if response_schema_text is not None:
                             response_schema = json.loads(response_schema_text)
                             if not isinstance(response_schema, dict):
-                                raise ValueError("The schema must be a JSON object.")
+                                raise ValueError("Shema mora biti objekt JSON.")
                             request_payload["response_schema"] = response_schema
                         response = api_post(
                             f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages",
@@ -167,23 +167,23 @@ with left:
                             st.markdown(response["reply"])
                         st.caption(f"{response['provider']} | {response['model']}")
                     except (json.JSONDecodeError, ValueError) as exc:
-                        st.error(f"Invalid JSON Schema: {exc}")
+                        st.error(f"Neveljavna shema JSON: {exc}")
                     except Exception as exc:  # noqa: BLE001
-                        st.error(f"Agent request failed: {exc}")
+                        st.error(f"Zahteva za agenta ni bilo mogoče izvesti: {exc}")
             st.rerun()
 
 with right:
-    st.subheader("Workspace Files")
+    st.subheader("Datoteke delovnega prostora")
     current_path = st.session_state.get("browse_path", "/")
-    st.caption(f"Listing `{current_path}`")
+    st.caption(f"Prikaz mape `{current_path}`")
     entries = load_files(current_path)
     if not entries:
-        st.write("No files found.")
+        st.write("Ni najdenih datotek.")
     for entry in entries:
         cols = st.columns([4, 2, 1])
         cols[0].write(entry["path"])
-        cols[1].write("dir" if entry["is_dir"] else f"{entry.get('size', 0)} bytes")
-        if cols[2].button("Delete", key=f"delete:{entry['path']}"):
+        cols[1].write("mapa" if entry["is_dir"] else f"{entry.get('size', 0)} B")
+        if cols[2].button("Izbriši", key=f"delete:{entry['path']}"):
             try:
                 delete_params = {"recursive": "true"} if entry["is_dir"] else None
                 api_delete(
@@ -192,4 +192,4 @@ with right:
                 )
                 st.rerun()
             except Exception as exc:  # noqa: BLE001
-                st.error(f"Delete failed: {exc}")
+                st.error(f"Brisanje ni uspelo: {exc}")
