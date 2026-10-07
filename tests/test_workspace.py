@@ -77,3 +77,17 @@ def test_workspace_manager_archives_directory_tree(tmp_path: Path) -> None:
             "sample/nested/report.txt",
         }
         assert archive.read("sample/nested/report.txt") == b"archive me"
+
+
+def test_copy_rejects_nested_symlink(tmp_path: Path) -> None:
+    workspace = WorkspaceManager(tmp_path / 'workspace')
+    workspace.ensure_layout()
+    source = workspace.resolve_path('/projects/source')
+    source.mkdir()
+    (source / 'outside').symlink_to(tmp_path)
+    try:
+        workspace.copy_path('/projects/source', '/projects/copied')
+    except ValueError as exc:
+        assert 'Symbolic links' in str(exc)
+    else:
+        raise AssertionError('Nested symlink was copied')

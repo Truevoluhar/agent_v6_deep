@@ -9,6 +9,8 @@ COPY workspace_api/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY workspace_api /app/workspace_api
+COPY shared /app/shared
+COPY migrations /app/migrations
 COPY agent_api /app/agent_api
 COPY workspace_api/entrypoint.sh /app/workspace_api/entrypoint.sh
 

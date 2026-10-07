@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import fnmatch
 import io
+import os
 import json
 import shutil
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
+from shared.quota import check_quota
 
 @dataclass(frozen=True)
 class WorkspaceEntry:
@@ -24,6 +26,7 @@ class WorkspaceManager:
         self.root = root.resolve()
 
     def ensure_layout(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
         for relative in (
             "uploads",
             "projects",
@@ -36,14 +39,37 @@ class WorkspaceManager:
             ".agent/threads",
             ".agent/processes",
         ):
-            (self.root / relative).mkdir(parents=True, exist_ok=True)
+            self.resolve_path(relative).mkdir(parents=True, exist_ok=True)
 
     def resolve_path(self, raw_path: str) -> Path:
         normalized = PurePosixPath("/" + raw_path.lstrip("/"))
-        candidate = (self.root / normalized.relative_to("/")).resolve()
+        relative = normalized.relative_to("/")
+        candidate = self.root / relative
+        current = self.root
+        for part in relative.parts:
+            current = current / part
+            if current.is_symlink():
+                raise ValueError("Symbolic links are not allowed")
+        candidate = candidate.resolve()
         if self.root not in candidate.parents and candidate != self.root:
             raise ValueError(f"Path escapes workspace: {raw_path}")
         return candidate
+
+    def open_file(self, raw_path: str, flags: int, mode: int = 0o666) -> int:
+        """Open a file relative to the root without following any symlink component."""
+        path = self.resolve_path(raw_path)
+        if path == self.root:
+            raise ValueError("Expected file path")
+        parts = path.relative_to(self.root).parts
+        directory_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            return os.open(parts[-1], flags | os.O_NOFOLLOW, mode, dir_fd=directory_fd)
+        finally:
+            os.close(directory_fd)
 
     def relative_path(self, path: Path) -> str:
         if path == self.root:
@@ -62,6 +88,8 @@ class WorkspaceManager:
         for index, child in enumerate(sorted(iterator, key=lambda item: item.as_posix().lower())):
             if index >= max_entries:
                 break
+            if child.is_symlink():
+                continue
             stat = child.stat()
             entries.append(
                 {
@@ -103,12 +131,14 @@ class WorkspaceManager:
             raise IsADirectoryError(raw_path)
         if path.exists() and not overwrite:
             raise FileExistsError(raw_path)
+        check_quota(self.root, len(content.encode("utf-8")), path.stat().st_size if path.is_file() else 0)
         path.write_text(content, encoding="utf-8")
         return self.stat_path(raw_path)
 
     def append_text(self, raw_path: str, content: str) -> dict[str, Any]:
         path = self.resolve_path(raw_path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        check_quota(self.root, (path.stat().st_size if path.is_file() else 0) + len(content.encode("utf-8")), path.stat().st_size if path.is_file() else 0)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(content)
         return self.stat_path(raw_path)
@@ -130,6 +160,8 @@ class WorkspaceManager:
         with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr(f"{archive_root}/", "")
             for child in sorted(target.rglob("*"), key=lambda item: item.as_posix().lower()):
+                if child.is_symlink():
+                    continue
                 try:
                     resolved_child = self.resolve_path(self.relative_path(child))
                 except ValueError:
@@ -145,6 +177,8 @@ class WorkspaceManager:
 
     def delete_path(self, raw_path: str, recursive: bool = False) -> dict[str, Any]:
         path = self.resolve_path(raw_path)
+        if path == self.root or path == self.root / ".agent" or (self.root / ".agent") in path.parents:
+            raise ValueError("Protected workspace path")
         if not path.exists():
             raise FileNotFoundError(raw_path)
         info = self.stat_path(raw_path)
@@ -164,6 +198,11 @@ class WorkspaceManager:
             raise FileNotFoundError(source)
         if dst.exists() and not overwrite:
             raise FileExistsError(destination)
+        if src.is_dir() and any(item.is_symlink() for item in src.rglob("*")):
+            raise ValueError("Symbolic links are not allowed")
+        source_size = sum(item.stat().st_size for item in src.rglob("*") if item.is_file()) if src.is_dir() else src.stat().st_size
+        replaced = sum(item.stat().st_size for item in dst.rglob("*") if item.is_file() and not item.is_symlink()) if dst.is_dir() else (dst.stat().st_size if dst.is_file() else 0)
+        check_quota(self.root, source_size, replaced)
         dst.parent.mkdir(parents=True, exist_ok=True)
         if src.is_dir():
             if dst.exists():
@@ -195,6 +234,8 @@ class WorkspaceManager:
             raise FileNotFoundError(base_path)
         matches: list[str] = []
         for child in base.rglob("*"):
+            if child.is_symlink():
+                continue
             relative = child.relative_to(base).as_posix()
             if fnmatch.fnmatch(relative, pattern):
                 matches.append(self.relative_path(child))
@@ -216,7 +257,7 @@ class WorkspaceManager:
         needle = pattern if case_sensitive else pattern.lower()
         matches: list[dict[str, Any]] = []
         for child in base.rglob("*"):
-            if not child.is_file():
+            if child.is_symlink() or not child.is_file():
                 continue
             relative = child.relative_to(base).as_posix()
             if not fnmatch.fnmatch(relative, glob_pattern):

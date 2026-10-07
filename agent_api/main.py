@@ -4,12 +4,20 @@ import asyncio
 import json
 import logging
 import uuid
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
+from fastapi import Depends
+from uuid import UUID
+from shared.auth.dependencies import require_user
+from shared.auth.models import CurrentUser
+from shared.auth.repository import AuthRepository
+from shared.auth.providers import make_provider
+from agent_api.auth_routes import router as auth_router
+from agent_api.admin_routes import router as admin_router
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from agent_api.config import load_config
@@ -17,14 +25,15 @@ from agent_api.model_factory import validate_strict_response_schema
 from agent_api.runtime import AgentRuntime
 from agent_api.workspace import WorkspaceEntry
 
-THREAD_LOCK = asyncio.Lock()
+USER_LOCKS: dict[str, asyncio.Lock] = {}
+RUNTIME_LOCK = threading.Lock()
+USER_ACTIVE_TASKS: dict[str, set[asyncio.Task]] = {}
 LOGGER = logging.getLogger(__name__)
-MCP_DISCOVERY_TIMEOUT_SECONDS = 15
-MCP_RETRY_INTERVAL_SECONDS = 30
 
 
 class ThreadInfo(BaseModel):
     thread_id: str
+    owner_user_id: str | None = None
     created_at: str
     updated_at: str
     title: str | None = None
@@ -56,24 +65,51 @@ class ProcessRequest(BaseModel):
 
 
 app = FastAPI(title="deepagents-platform agent-api", version="0.1.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+@app.middleware("http")
+async def no_store_private(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/v1/") or request.url.path.startswith("/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 def utc_now() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def get_runtime() -> AgentRuntime:
-    runtime = getattr(app.state, "runtime", None)
-    if runtime is None:
-        runtime = AgentRuntime.create(load_config())
-        app.state.runtime = runtime
-    return runtime
+def get_runtime(user: CurrentUser) -> AgentRuntime:
+    registry = getattr(app.state, "runtime_registry", None)
+    if registry is None:
+        registry = {}
+        app.state.runtime_registry = registry
+    key = str(user.user_id)
+    with RUNTIME_LOCK:
+        if key not in registry:
+            config = getattr(app.state, "base_config", None) or load_config()
+            registry[key] = AgentRuntime.create(config, user.user_id)
+    return registry[key]
+
+
+def cancel_user_tasks(user_id: UUID) -> None:
+    key = str(user_id)
+    for task in list(USER_ACTIVE_TASKS.get(key, ())):
+        task.cancel()
+    getattr(app.state, "runtime_registry", {}).pop(key, None)
+
+
+def user_lock(user: CurrentUser) -> asyncio.Lock:
+    return USER_LOCKS.setdefault(str(user.user_id), asyncio.Lock())
+
+
+def checked_id(value: str) -> str:
+    try:
+        return str(UUID(value))
+    except ValueError as exc:
+        raise HTTPException(422, "Invalid UUID") from exc
 
 
 def thread_store_root(runtime: AgentRuntime) -> Path:
@@ -83,36 +119,46 @@ def thread_store_root(runtime: AgentRuntime) -> Path:
 
 
 def transcript_path(runtime: AgentRuntime, thread_id: str) -> Path:
-    return thread_store_root(runtime) / f"{thread_id}.jsonl"
+    path = thread_store_root(runtime) / f"{checked_id(thread_id)}.jsonl"
+    if path.is_symlink():
+        raise HTTPException(404, "Thread not found")
+    return path
 
 
 def metadata_path(runtime: AgentRuntime, thread_id: str) -> Path:
-    return thread_store_root(runtime) / f"{thread_id}.json"
+    path = thread_store_root(runtime) / f"{checked_id(thread_id)}.json"
+    if path.is_symlink():
+        raise HTTPException(404, "Thread not found")
+    return path
 
 
 def load_thread_info(runtime: AgentRuntime, thread_id: str) -> ThreadInfo:
     path = metadata_path(runtime, thread_id)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Thread not found.")
-    return ThreadInfo.model_validate_json(path.read_text(encoding="utf-8"))
+    info = ThreadInfo.model_validate_json(path.read_text(encoding="utf-8"))
+    if info.owner_user_id != str(runtime.user_id):
+        raise HTTPException(status_code=404, detail="Thread not found.")
+    return info
 
 
 def save_thread_info(runtime: AgentRuntime, info: ThreadInfo) -> None:
-    metadata_path(runtime, info.thread_id).write_text(
-        info.model_dump_json(indent=2),
-        encoding="utf-8",
-    )
+    path = metadata_path(runtime, info.thread_id)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(info.model_dump_json(indent=2), encoding="utf-8")
+    temporary.replace(path)
 
 
 def ensure_thread(runtime: AgentRuntime, thread_id: str, first_message: str | None = None) -> ThreadInfo:
     path = metadata_path(runtime, thread_id)
     if path.exists():
-        return ThreadInfo.model_validate_json(path.read_text(encoding="utf-8"))
+        return load_thread_info(runtime, thread_id)
 
     timestamp = utc_now()
     title = first_message[:80] if first_message else None
     info = ThreadInfo(
         thread_id=thread_id,
+        owner_user_id=str(runtime.user_id),
         created_at=timestamp,
         updated_at=timestamp,
         title=title,
@@ -171,110 +217,60 @@ def extract_reply(result: Any) -> str:
     return str(result)
 
 
-def _exception_summary(exc: BaseException, secret: str | None = None) -> str:
-    if isinstance(exc, BaseExceptionGroup):
-        nested = " | ".join(_exception_summary(item, secret) for item in exc.exceptions)
-        return f"{type(exc).__name__}({nested})"
-
-    detail = str(exc)
-    if secret:
-        detail = detail.replace(secret, "[redacted]")
-    return f"{type(exc).__name__}: {detail}".rstrip(": ")
-
-
 @app.on_event("startup")
 async def startup() -> None:
-    runtime = AgentRuntime.create(load_config())
-    app.state.runtime = runtime
-    if runtime.config.agent.bifrost_mcp_enabled:
-        runtime.mcp_status = "connecting"
-        app.state.mcp_initialization_task = asyncio.create_task(
-            initialize_mcp_with_retries(runtime)
-        )
+    repository = AuthRepository()
+    repository.initialize()
+    make_provider(repository)
+    app.state.auth_repository = repository
+    app.state.base_config = load_config()
+    app.state.runtime_registry = {}
+    app.state.cancel_user_tasks = cancel_user_tasks
 
-
-async def initialize_mcp_with_retries(runtime: AgentRuntime) -> None:
-    while True:
-        try:
-            await asyncio.wait_for(
-                runtime.initialize_mcp(),
-                timeout=MCP_DISCOVERY_TIMEOUT_SECONDS,
-            )
-        except asyncio.CancelledError:
-            raise
-        except (ModuleNotFoundError, ValueError) as exc:
-            missing_module = getattr(exc, "name", None)
-            runtime.mcp_status = "error"
-            runtime.mcp_error = (
-                f"{type(exc).__name__}: {missing_module}"
-                if missing_module
-                else type(exc).__name__
-            )
-            LOGGER.error("Bifrost MCP tool discovery cannot start (%s).", runtime.mcp_error)
-            return
-        except Exception as exc:
-            runtime.mcp_status = "retrying"
-            runtime.mcp_error = _exception_summary(
-                exc,
-                secret=runtime.config.agent.bifrost_mcp_api_key,
-            )[:1000]
-            LOGGER.warning(
-                "Bifrost MCP tool discovery failed (%s); retrying in %s seconds.",
-                runtime.mcp_error,
-                MCP_RETRY_INTERVAL_SECONDS,
-            )
-            await asyncio.sleep(MCP_RETRY_INTERVAL_SECONDS)
-        else:
-            runtime.mcp_status = "connected"
-            runtime.mcp_error = None
-            LOGGER.info("Loaded %s Bifrost MCP tools.", len(runtime.mcp_tools))
-            return
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    runtime = get_runtime()
-    return {
-        "status": "ok",
-        "provider": runtime.config.active_provider,
-        "model": runtime.config.provider.model,
-        "toolkits": ",".join(runtime.config.agent.enabled_toolkits),
-        "mcp": runtime.mcp_status,
-    }
+    return {"status": "ok"}
 
 
 @app.post("/v1/threads", response_model=ThreadInfo)
-def create_thread() -> ThreadInfo:
-    runtime = get_runtime()
+def create_thread(user: CurrentUser = Depends(require_user)) -> ThreadInfo:
+    runtime = get_runtime(user)
     thread_id = str(uuid.uuid4())
     return ensure_thread(runtime, thread_id)
 
 
 @app.get("/v1/threads", response_model=list[ThreadInfo])
-def get_threads() -> list[ThreadInfo]:
-    runtime = get_runtime()
+def get_threads(user: CurrentUser = Depends(require_user)) -> list[ThreadInfo]:
+    runtime = get_runtime(user)
     threads: list[ThreadInfo] = []
     for path in sorted(thread_store_root(runtime).glob("*.json")):
-        threads.append(ThreadInfo.model_validate_json(path.read_text(encoding="utf-8")))
+        if path.is_symlink():
+            continue
+        info = ThreadInfo.model_validate_json(path.read_text(encoding="utf-8"))
+        if info.owner_user_id == str(user.user_id):
+            threads.append(info)
     return sorted(threads, key=lambda item: item.updated_at, reverse=True)
 
 
 @app.get("/v1/threads/{thread_id}", response_model=ThreadInfo)
-def get_thread(thread_id: str) -> ThreadInfo:
-    runtime = get_runtime()
+def get_thread(thread_id: str, user: CurrentUser = Depends(require_user)) -> ThreadInfo:
+    runtime = get_runtime(user)
     return load_thread_info(runtime, thread_id)
 
 
 @app.get("/v1/threads/{thread_id}/messages", response_model=list[MessageRecord])
-def get_thread_messages(thread_id: str) -> list[MessageRecord]:
-    runtime = get_runtime()
+def get_thread_messages(thread_id: str, user: CurrentUser = Depends(require_user)) -> list[MessageRecord]:
+    runtime = get_runtime(user)
     load_thread_info(runtime, thread_id)
     return list_messages(runtime, thread_id)
 
 
 @app.post("/v1/threads/{thread_id}/messages", response_model=MessageResponse)
-async def post_thread_message(thread_id: str, request: MessageRequest) -> MessageResponse:
-    runtime = get_runtime()
+async def post_thread_message(thread_id: str, request: MessageRequest, user: CurrentUser = Depends(require_user)) -> MessageResponse:
+    runtime = get_runtime(user)
+    info = load_thread_info(runtime, thread_id)
     if request.response_format and request.response_schema is not None:
         raise HTTPException(
             status_code=422,
@@ -285,36 +281,33 @@ async def post_thread_message(thread_id: str, request: MessageRequest) -> Messag
             validate_strict_response_schema(request.response_schema)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    try:
-        async with THREAD_LOCK:
+    async with user_lock(user):
+        info = load_thread_info(runtime, thread_id)
+        task = asyncio.current_task()
+        if task is not None:
+            USER_ACTIVE_TASKS.setdefault(str(user.user_id), set()).add(task)
+        try:
             result = await runtime.invoke(
                 thread_id=thread_id,
                 message=request.message,
                 response_format=request.response_format,
                 response_schema=request.response_schema,
             )
-    except Exception as exc:
-        LOGGER.exception("Agent invocation failed for thread %s", thread_id)
-        raise HTTPException(
-            status_code=502,
-            detail="Agent invocation failed. Check the agent-api logs.",
-        ) from exc
-
-    reply = extract_reply(result)
-    info = ensure_thread(runtime, thread_id, first_message=request.message)
-    user_message = MessageRecord(role="user", content=request.message, created_at=utc_now())
-    append_message(runtime, thread_id, user_message)
-    assistant_message = MessageRecord(role="assistant", content=reply, created_at=utc_now())
-    append_message(runtime, thread_id, assistant_message)
-
-    updated = info.model_copy(
-        update={
+        except Exception as exc:
+            LOGGER.exception("Agent invocation failed for thread %s", thread_id)
+            raise HTTPException(502, "Agent invocation failed. Check the agent-api logs.") from exc
+        finally:
+            if task is not None:
+                USER_ACTIVE_TASKS.get(str(user.user_id), set()).discard(task)
+        reply = extract_reply(result)
+        append_message(runtime, thread_id, MessageRecord(role="user", content=request.message, created_at=utc_now()))
+        append_message(runtime, thread_id, MessageRecord(role="assistant", content=reply, created_at=utc_now()))
+        updated = info.model_copy(update={
             "updated_at": utc_now(),
             "title": info.title or request.message[:80],
             "last_message_preview": reply[:120] if reply else request.message[:120],
-        }
-    )
-    save_thread_info(runtime, updated)
+        })
+        save_thread_info(runtime, updated)
 
     return MessageResponse(
         thread_id=thread_id,
@@ -325,8 +318,8 @@ async def post_thread_message(thread_id: str, request: MessageRequest) -> Messag
 
 
 @app.get("/v1/tools")
-def get_tools() -> dict[str, Any]:
-    runtime = get_runtime()
+def get_tools(user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
+    runtime = get_runtime(user)
     return {
         "toolkits": runtime.tool_collection.toolkits,
         "mcp_status": runtime.mcp_status,
@@ -339,8 +332,8 @@ def get_tools() -> dict[str, Any]:
 
 
 @app.get("/v1/files", response_model=list[WorkspaceEntry])
-def list_workspace_files(path: str = "/", recursive: bool = False, max_entries: int = 200) -> list[WorkspaceEntry]:
-    runtime = get_runtime()
+def list_workspace_files(path: str = "/", recursive: bool = False, max_entries: int = 200, user: CurrentUser = Depends(require_user)) -> list[WorkspaceEntry]:
+    runtime = get_runtime(user)
     try:
         items = runtime.workspace.list_dir(path, recursive=recursive, max_entries=max_entries)
     except FileNotFoundError as exc:
@@ -353,8 +346,9 @@ def list_workspace_files(path: str = "/", recursive: bool = False, max_entries: 
 
 
 @app.post("/v1/processes")
-def start_process(request: ProcessRequest) -> dict[str, Any]:
-    runtime = get_runtime()
+def start_process(request: ProcessRequest, user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
+    raise HTTPException(403, "Shell execution is disabled")
+    runtime = get_runtime(user)
     try:
         return runtime.process_manager.start(request.command, cwd=request.cwd)
     except FileNotFoundError as exc:
@@ -364,14 +358,15 @@ def start_process(request: ProcessRequest) -> dict[str, Any]:
 
 
 @app.get("/v1/processes")
-def list_processes() -> list[dict[str, Any]]:
-    runtime = get_runtime()
+def list_processes(user: CurrentUser = Depends(require_user)) -> list[dict[str, Any]]:
+    runtime = get_runtime(user)
     return runtime.process_manager.list_processes()
 
 
 @app.get("/v1/processes/{process_id}")
-def get_process(process_id: str) -> dict[str, Any]:
-    runtime = get_runtime()
+def get_process(process_id: str, user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
+    checked_id(process_id)
+    runtime = get_runtime(user)
     try:
         return runtime.process_manager.get(process_id)
     except FileNotFoundError as exc:
@@ -379,8 +374,9 @@ def get_process(process_id: str) -> dict[str, Any]:
 
 
 @app.get("/v1/processes/{process_id}/output")
-def get_process_output(process_id: str, stream: str = "stdout", tail_lines: int = 200) -> dict[str, Any]:
-    runtime = get_runtime()
+def get_process_output(process_id: str, stream: str = "stdout", tail_lines: int = 200, user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
+    checked_id(process_id)
+    runtime = get_runtime(user)
     try:
         return runtime.process_manager.read_output(process_id, stream=stream, tail_lines=tail_lines)
     except FileNotFoundError as exc:
@@ -390,8 +386,9 @@ def get_process_output(process_id: str, stream: str = "stdout", tail_lines: int 
 
 
 @app.post("/v1/processes/{process_id}/stop")
-def stop_process(process_id: str, force: bool = False) -> dict[str, Any]:
-    runtime = get_runtime()
+def stop_process(process_id: str, force: bool = False, user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
+    checked_id(process_id)
+    runtime = get_runtime(user)
     try:
         return runtime.process_manager.stop(process_id, force=force)
     except FileNotFoundError as exc:

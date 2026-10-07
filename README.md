@@ -114,7 +114,11 @@ workspace_seed/   Initial AGENTS.md memory seed
 tests/            Config loader tests
 ```
 
+## Multi-user access
+
+Local login, per-user workspaces, administrator account management, and mandatory `guid` query authentication are described in [MULTIUSER.md](MULTIUSER.md). The initial account is `admin` / `admin123`; change its password after the first login. Shell execution and shared MCP tools are disabled because this Compose deployment has no verified execution sandbox.
+
 ## Notes
 
-- The scaffold is an MVP and does not implement response streaming, auth, or a dedicated sandbox manager.
-- The local shell backend runs inside the `agent-api` container and should not be treated as a production isolation boundary.
+- The application does not implement response streaming.
+- Use a single agent-api worker; invocation locks are local to that process.

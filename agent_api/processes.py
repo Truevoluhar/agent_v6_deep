@@ -26,7 +26,8 @@ class LiveProcess:
 
 
 class BackgroundProcessManager:
-    def __init__(self, workspace: WorkspaceManager, env: dict[str, str], processes_root: Path) -> None:
+    def __init__(self, workspace: WorkspaceManager, env: dict[str, str], processes_root: Path, owner_user_id: uuid.UUID | None = None) -> None:
+        self.owner_user_id = owner_user_id
         self.workspace = workspace
         self.env = env
         self.processes_dir = processes_root
@@ -35,6 +36,7 @@ class BackgroundProcessManager:
         self._live: dict[str, LiveProcess] = {}
 
     def start(self, command: str, cwd: str = "/") -> dict[str, Any]:
+        raise PermissionError("Shell execution is disabled")
         process_id = str(uuid.uuid4())
         cwd_path = self.workspace.resolve_path(cwd)
         if not cwd_path.is_dir():
@@ -59,6 +61,7 @@ class BackgroundProcessManager:
         )
         metadata = {
             "process_id": process_id,
+            "owner_user_id": str(self.owner_user_id) if self.owner_user_id else None,
             "command": command,
             "cwd": self.workspace.relative_path(cwd_path),
             "status": "running",
@@ -66,8 +69,8 @@ class BackgroundProcessManager:
             "created_at": utc_now(),
             "updated_at": utc_now(),
             "return_code": None,
-            "stdout_path": self.workspace.relative_path(stdout_path),
-            "stderr_path": self.workspace.relative_path(stderr_path),
+            "stdout_path": "stdout.log",
+            "stderr_path": "stderr.log",
         }
         meta_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         with self._lock:
@@ -79,13 +82,16 @@ class BackgroundProcessManager:
         return metadata
 
     def _metadata_path(self, process_id: str) -> Path:
-        return self.processes_dir / process_id / "metadata.json"
+        return self.processes_dir / str(uuid.UUID(process_id)) / "metadata.json"
 
     def _load_metadata(self, process_id: str) -> dict[str, Any]:
         path = self._metadata_path(process_id)
         if not path.exists():
             raise FileNotFoundError(process_id)
-        return json.loads(path.read_text(encoding="utf-8"))
+        metadata = json.loads(path.read_text(encoding="utf-8"))
+        if self.owner_user_id is not None and metadata.get("owner_user_id") != str(self.owner_user_id):
+            raise FileNotFoundError(process_id)
+        return metadata
 
     def _save_metadata(self, metadata: dict[str, Any]) -> None:
         path = self._metadata_path(metadata["process_id"])
@@ -127,7 +133,7 @@ class BackgroundProcessManager:
         if stream not in {"stdout", "stderr"}:
             raise ValueError("stream must be 'stdout' or 'stderr'")
         path_key = "stdout_path" if stream == "stdout" else "stderr_path"
-        output_path = self.workspace.resolve_path(metadata[path_key])
+        output_path = self._metadata_path(process_id).parent / metadata[path_key]
         if not output_path.exists():
             content = ""
         else:
@@ -165,6 +171,7 @@ def run_shell_command(
     env: dict[str, str],
     timeout_seconds: int,
 ) -> dict[str, Any]:
+    raise PermissionError("Shell execution is disabled")
     completed = subprocess.run(
         ["bash", "-lc", command],
         cwd=cwd,

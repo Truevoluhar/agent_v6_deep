@@ -30,15 +30,15 @@ services:
     environment:
       AGENT_DATA_ROOT: /data
       WORKSPACE_ROOT: /data/agent_workspace
+      DATABASE_URL: postgresql://deepagents:deepagents@127.0.0.1:5432/deepagents
     volumes:
       - ./data:/data
-    ports:
-      - "8090:8090"
+    network_mode: host
     dns:
       - 168.63.129.16
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')\""]
       interval: 15s
@@ -48,8 +48,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    networks:
-      - app
 
   agent-api:
     build:
@@ -59,6 +57,7 @@ services:
     env_file:
       - .env
     environment:
+      CODESPACE_NAME: ${CODESPACE_NAME:-}
       AGENT_API_PORT: 8081
       PROVIDERS_CONFIG_PATH: /app/config/providers.yaml
       AGENT_DATA_ROOT: /data
@@ -82,9 +81,9 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       workspace-api:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')\""]
       interval: 15s
@@ -116,9 +115,9 @@ services:
       - 168.63.129.16
     depends_on:
       agent-api:
-        condition: service_healthy
+        condition: service_started
       workspace-api:
-        condition: service_healthy
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "agent-api:host-gateway"

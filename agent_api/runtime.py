@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from uuid import UUID
+from shared.user_paths import UserPaths
 from pathlib import Path
 from typing import Any
 
@@ -39,13 +41,18 @@ class AgentRuntime:
     process_manager: BackgroundProcessManager
     shell_env: dict[str, str]
     tool_collection: ToolCollection
+    user_id: UUID | None = None
     mcp_client: Any = None
     mcp_tools: list[Any] = field(default_factory=list)
     mcp_status: str = "disabled"
     mcp_error: str | None = None
 
     @classmethod
-    def create(cls, config: AppConfig) -> "AgentRuntime":
+    def create(cls, config: AppConfig, user_id: UUID | None = None) -> "AgentRuntime":
+        if user_id is not None:
+            paths = UserPaths.for_user(user_id)
+            agent = replace(config.agent, data_root=paths.root, workspace_root=paths.workspace, session_root=paths.sessions, memory_root=paths.memory, resources_root=paths.resources, runs_root=paths.runs, enabled_toolkits=[name for name in config.agent.enabled_toolkits if name != "shell"], bifrost_mcp_enabled=False, memory_files=["/.agent/AGENTS.md", "/.agent/MEMORY.md"], skills_root="/.agent/skills")
+            config = replace(config, agent=agent)
         workspace = WorkspaceManager(config.agent.workspace_root)
         workspace.ensure_layout()
         for root in (
@@ -57,6 +64,16 @@ class AgentRuntime:
         ):
             root.mkdir(parents=True, exist_ok=True)
         _seed_memory(workspace)
+        if user_id is not None:
+            memory_file = workspace.resolve_path("/.agent/MEMORY.md")
+            durable_memory = config.agent.memory_root / "MEMORY.md"
+            if not memory_file.exists():
+                if durable_memory.exists():
+                    shutil.copyfile(durable_memory, memory_file)
+                else:
+                    memory_file.write_text("# User memory\n", encoding="utf-8")
+            if not durable_memory.exists():
+                shutil.copyfile(memory_file, durable_memory)
         _seed_skills(workspace, config.agent.skills_root)
         shell_env = {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
@@ -66,6 +83,7 @@ class AgentRuntime:
             workspace=workspace,
             env=shell_env,
             processes_root=config.agent.runs_root / "processes",
+            owner_user_id=user_id,
         )
         tool_collection = build_tool_collection(
             ToolContext(
@@ -82,6 +100,7 @@ class AgentRuntime:
             process_manager=process_manager,
             shell_env=shell_env,
             tool_collection=tool_collection,
+            user_id=user_id,
         )
 
     async def initialize_mcp(self) -> None:
@@ -134,7 +153,7 @@ class AgentRuntime:
         response_schema: dict[str, Any] | None = None,
     ) -> Any:
         from deepagents import create_deep_agent
-        from deepagents.backends import LocalShellBackend
+        from agent_api.quota_backend import QuotaFilesystemBackend
 
         from agent_api.model_factory import build_chat_model
 
@@ -147,12 +166,9 @@ class AgentRuntime:
             "model": build_chat_model(self.config.provider),
             "tools": self.all_tools(),
             "system_prompt": self.build_system_prompt(),
-            "backend": LocalShellBackend(
+            "backend": QuotaFilesystemBackend(
                 root_dir=self.config.agent.workspace_root,
                 virtual_mode=True,
-                inherit_env=False,
-                timeout=self.config.agent.shell_timeout_seconds,
-                env=self.shell_env,
             ),
             "memory": self.config.agent.memory_files,
             "skills": [self.config.agent.skills_root],
@@ -172,7 +188,7 @@ class AgentRuntime:
                 result = await agent.ainvoke(
                     {"messages": [{"role": "user", "content": message}]},
                     config={
-                        "configurable": {"thread_id": thread_id},
+                        "configurable": {"thread_id": f"{self.user_id}:{thread_id}" if self.user_id else thread_id},
                         "recursion_limit": self.config.agent.recursion_limit,
                     },
                 )
@@ -183,10 +199,15 @@ class AgentRuntime:
             result = await agent.ainvoke(
                 {"messages": [{"role": "user", "content": message}]},
                 config={
-                    "configurable": {"thread_id": thread_id},
+                    "configurable": {"thread_id": f"{self.user_id}:{thread_id}" if self.user_id else thread_id},
                     "recursion_limit": self.config.agent.recursion_limit,
                 },
             )
+
+        if self.user_id is not None:
+            memory_file = self.workspace.resolve_path("/.agent/MEMORY.md")
+            if memory_file.exists():
+                shutil.copyfile(memory_file, self.config.agent.memory_root / "MEMORY.md")
 
         if response_format is None and response_schema is None:
             return result
@@ -228,8 +249,7 @@ class AgentRuntime:
             f"{self.config.agent.system_prompt}\n\n"
             "Custom toolkits available in addition to the DeepAgents built-ins:\n"
             f"{toolkit_text}\n\n"
-            "Use `run_shell` when you need structured stdout/stderr/return-code output. "
-            "Use the background process tools for long-running commands and log inspection."
+            "Shell command execution is disabled. Use filesystem tools for workspace files."
         )
         if response_format == "json":
             prompt += (

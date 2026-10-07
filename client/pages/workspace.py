@@ -2,18 +2,27 @@ from __future__ import annotations
 
 import base64
 import mimetypes
-from pathlib import PurePosixPath
+import sys
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
 import requests
 import streamlit as st
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from client.auth import require_login, with_guid, safe_error
+
 try:
     from service_urls import resolve_workspace_api_url
 except ModuleNotFoundError:
     from client.service_urls import resolve_workspace_api_url
 
+st.set_page_config(page_title="Delovni prostor | ZPIZAgent platforma", layout="wide")
+guid, current_user = require_login()
 WORKSPACE_API = resolve_workspace_api_url()
 MAX_ENTRIES = 10_000
 MAX_PREVIEW_BYTES = 1_000_000
@@ -33,7 +42,6 @@ CODE_LANGUAGES = {
     ".cs": "csharp", ".rb": "ruby", ".php": "php", ".swift": "swift",
 }
 
-st.set_page_config(page_title="Delovni prostor | ZPIZAgent platforma", layout="wide")
 st.page_link("app.py", label="Nazaj na klepet", icon=":material/arrow_back:")
 st.title("Delovni prostor")
 st.caption("Brskajte po mapah in datotekah delovnega prostora.")
@@ -42,7 +50,7 @@ st.caption("Brskajte po mapah in datotekah delovnega prostora.")
 def get_entries(path: str) -> list[dict[str, Any]]:
     response = requests.get(
         f"{WORKSPACE_API}/v1/files",
-        params={"path": path, "max_entries": MAX_ENTRIES},
+        params=with_guid({"path": path, "max_entries": MAX_ENTRIES}),
         timeout=60,
     )
     response.raise_for_status()
@@ -51,7 +59,7 @@ def get_entries(path: str) -> list[dict[str, Any]]:
 
 def get_file_response(path: str) -> requests.Response:
     encoded_path = quote(path.lstrip("/"), safe="/")
-    response = requests.get(f"{WORKSPACE_API}/v1/files/{encoded_path}", timeout=600)
+    response = requests.get(f"{WORKSPACE_API}/v1/files/{encoded_path}", params=with_guid(), timeout=600)
     response.raise_for_status()
     return response
 
@@ -59,7 +67,7 @@ def get_file_response(path: str) -> requests.Response:
 def get_archive(path: str) -> tuple[str, bytes]:
     response = requests.get(
         f"{WORKSPACE_API}/v1/archives",
-        params={"path": path},
+        params=with_guid({"path": path}),
         timeout=600,
     )
     response.raise_for_status()
@@ -132,14 +140,14 @@ if create_submitted:
         try:
             response = requests.post(
                 f"{WORKSPACE_API}/v1/directories",
-                params={"path": new_path},
+                params=with_guid({"path": new_path}),
                 timeout=60,
             )
             response.raise_for_status()
             st.success(f"Mapa {new_path} je ustvarjena.")
             st.rerun()
         except requests.RequestException as exc:
-            st.error(f"Mape ni bilo mogoče ustvariti: {exc}")
+            st.error(f"Mape ni bilo mogoče ustvariti: {safe_error(exc)}")
 
 toolbar_col, refresh_col = st.columns([5, 1])
 filter_text = toolbar_col.text_input(
@@ -155,7 +163,7 @@ if refresh_col.button("Osveži", icon=":material/refresh:", use_container_width=
 try:
     entries = get_entries(current_path)
 except requests.RequestException as exc:
-    st.error(f"Vsebine mape ni bilo mogoče naložiti: {exc}")
+    st.error(f"Vsebine mape ni bilo mogoče naložiti: {safe_error(exc)}")
     entries = []
 
 if len(entries) >= MAX_ENTRIES:
@@ -183,7 +191,7 @@ if archive_col.button(
         save_download(archive_name, archive_content, "application/zip")
         st.rerun()
     except requests.RequestException as exc:
-        st.error(f"Arhiva ni bilo mogoče pripraviti: {exc}")
+        st.error(f"Arhiva ni bilo mogoče pripraviti: {safe_error(exc)}")
 
 pending_download = st.session_state.get("workspace_download")
 if pending_download:
@@ -209,7 +217,7 @@ if pending_delete:
                 encoded_path = quote(pending_delete.lstrip("/"), safe="/")
                 response = requests.delete(
                     f"{WORKSPACE_API}/v1/files/{encoded_path}",
-                    params={"recursive": "true"} if pending_entry["is_dir"] else None,
+                    params=with_guid({"recursive": "true"} if pending_entry["is_dir"] else None),
                     timeout=60,
                 )
                 response.raise_for_status()
@@ -219,7 +227,7 @@ if pending_delete:
                 st.success(f"{pending_delete} je izbrisana.")
                 st.rerun()
             except requests.RequestException as exc:
-                st.error(f"Brisanje ni uspelo: {exc}")
+                st.error(f"Brisanje ni uspelo: {safe_error(exc)}")
         if cancel_col.button("Prekliči", key="cancel_workspace_delete"):
             st.session_state.pop("workspace_delete_path", None)
             st.rerun()
@@ -263,7 +271,7 @@ else:
                     save_download(archive_name, archive_content, "application/zip")
                     st.rerun()
                 except requests.RequestException as exc:
-                    st.error(f"Arhiva mape ni bilo mogoče pripraviti: {exc}")
+                    st.error(f"Arhiva mape ni bilo mogoče pripraviti: {safe_error(exc)}")
         else:
             if row[2].button(
                 "Prenesi",
@@ -280,7 +288,7 @@ else:
                     )
                     st.rerun()
                 except requests.RequestException as exc:
-                    st.error(f"Datoteke ni bilo mogoče prenesti: {exc}")
+                    st.error(f"Datoteke ni bilo mogoče prenesti: {safe_error(exc)}")
             if is_previewable(path):
                 if row[3].button(
                     "Predogled",
@@ -339,4 +347,4 @@ if preview_path:
                 else:
                     st.code(preview_text, language=CODE_LANGUAGES.get(suffix))
     except requests.RequestException as exc:
-        st.error(f"Predogleda ni bilo mogoče naložiti: {exc}")
+        st.error(f"Predogleda ni bilo mogoče naložiti: {safe_error(exc)}")

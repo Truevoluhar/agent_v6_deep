@@ -12,6 +12,9 @@ RUN apt-get update \
 COPY agent_api/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+COPY shared /app/shared
+COPY migrations /app/migrations
+COPY scripts /app/scripts
 COPY agent_api /app/agent_api
 COPY config /app/config
 COPY skills /app/skills

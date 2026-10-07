@@ -1,47 +1,56 @@
 from __future__ import annotations
 
 import os
+import mimetypes
+from uuid import uuid4
+from shared.quota import quota_bytes, used_bytes
 from pathlib import Path
 from urllib.parse import quote
-
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
-
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
+from shared.auth.dependencies import require_user
+from shared.auth.models import CurrentUser
+from shared.auth.repository import AuthRepository
+from shared.auth.providers import make_provider
+from shared.user_paths import UserPaths
 from agent_api.workspace import WorkspaceEntry, WorkspaceManager
 
-WORKSPACE_ROOT = Path(
-    os.environ.get(
-        "WORKSPACE_ROOT",
-        str(Path(os.environ.get("AGENT_DATA_ROOT", "/data")) / "agent_workspace"),
-    )
-).resolve()
-WORKSPACE = WorkspaceManager(WORKSPACE_ROOT)
+
+def workspace_for(user: CurrentUser) -> WorkspaceManager:
+    workspace = WorkspaceManager(UserPaths.for_user(user.user_id).workspace)
+    workspace.ensure_layout()
+    return workspace
 
 app = FastAPI(title="deepagents-platform workspace-api", version="0.1.0")
 
 
-def ensure_workspace() -> None:
-    WORKSPACE.ensure_layout()
 
+@app.middleware("http")
+async def no_store_private(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/v1/") or request.url.path.startswith("/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 @app.on_event("startup")
 def startup() -> None:
-    ensure_workspace()
+    repository = AuthRepository()
+    repository.initialize()
+    make_provider(repository)
+    app.state.auth_repository = repository
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    ensure_workspace()
     return {"status": "ok"}
 
 
 @app.get("/v1/files", response_model=list[WorkspaceEntry])
-def list_files(path: str = "/", recursive: bool = False, max_entries: int = 200) -> list[WorkspaceEntry]:
-    ensure_workspace()
+def list_files(path: str = "/", recursive: bool = False, max_entries: int = 200, user: CurrentUser = Depends(require_user)) -> list[WorkspaceEntry]:
     try:
         return [
             WorkspaceEntry(**entry)
-            for entry in WORKSPACE.list_dir(path, recursive=recursive, max_entries=max_entries)
+            for entry in workspace_for(user).list_dir(path, recursive=recursive, max_entries=max_entries)
         ]
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Path not found.") from exc
@@ -52,13 +61,12 @@ def list_files(path: str = "/", recursive: bool = False, max_entries: int = 200)
 
 
 @app.post("/v1/directories", response_model=WorkspaceEntry)
-def create_directory(path: str) -> WorkspaceEntry:
-    ensure_workspace()
+def create_directory(path: str, user: CurrentUser = Depends(require_user)) -> WorkspaceEntry:
     try:
-        target = WORKSPACE.resolve_path(path)
+        target = workspace_for(user).resolve_path(path)
         if target.exists():
             raise HTTPException(status_code=409, detail="Directory already exists.")
-        return WorkspaceEntry(**WORKSPACE.make_directory(path))
+        return WorkspaceEntry(**workspace_for(user).make_directory(path))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
     except FileExistsError as exc:
@@ -71,10 +79,10 @@ def create_directory(path: str) -> WorkspaceEntry:
 async def upload_file(
     file: UploadFile = File(...),
     destination: str = Form("uploads"),
+    user: CurrentUser = Depends(require_user),
 ) -> WorkspaceEntry:
-    ensure_workspace()
     try:
-        target_dir = WORKSPACE.resolve_path(destination)
+        target_dir = workspace_for(user).resolve_path(destination)
         target_dir.mkdir(parents=True, exist_ok=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
@@ -82,38 +90,66 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="Destination must be a directory.")
 
     filename = Path(file.filename or "upload.bin").name
-    output_path = target_dir / filename
-    with output_path.open("wb") as handle:
-        while chunk := await file.read(1024 * 1024):
-            handle.write(chunk)
+    if filename in {".", ".."}:
+        raise HTTPException(400, "Invalid filename")
+    try:
+        output_path = workspace_for(user).resolve_path(str(Path(destination) / filename))
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid workspace path") from exc
+    workspace = workspace_for(user)
+    existing_size = output_path.stat().st_size if output_path.is_file() else 0
+    baseline = used_bytes(workspace.root)
+    temporary_name = f".upload-{uuid4()}"
+    temporary_path = target_dir / temporary_name
+    try:
+        fd = workspace.open_file(str(Path(destination) / temporary_name), os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        total = 0
+        with os.fdopen(fd, "wb") as handle:
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if baseline - existing_size + total > quota_bytes():
+                    raise HTTPException(413, "Workspace quota exceeded")
+                handle.write(chunk)
+        workspace.resolve_path(str(Path(destination) / filename))
+        os.replace(temporary_path, output_path)
+    except OSError as exc:
+        raise HTTPException(400, "Invalid upload target") from exc
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
     return WorkspaceEntry(
         name=output_path.name,
-        path=WORKSPACE.relative_path(output_path),
+        path=workspace_for(user).relative_path(output_path),
         is_dir=False,
         size=output_path.stat().st_size,
     )
 
 
 @app.get("/v1/files/{file_path:path}")
-def download_file(file_path: str) -> FileResponse:
-    ensure_workspace()
+def download_file(file_path: str, user: CurrentUser = Depends(require_user)) -> StreamingResponse:
     try:
-        target = WORKSPACE.resolve_path(file_path)
+        target = workspace_for(user).resolve_path(file_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found.")
     if target.is_dir():
         raise HTTPException(status_code=400, detail="Directories cannot be downloaded.")
-    return FileResponse(target)
+    try:
+        fd = workspace_for(user).open_file(file_path, os.O_RDONLY)
+    except OSError as exc:
+        raise HTTPException(400, "Invalid file path") from exc
+    def chunks():
+        with os.fdopen(fd, "rb") as handle:
+            while chunk := handle.read(1024 * 1024):
+                yield chunk
+    return StreamingResponse(chunks(), media_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream")
 
 
 @app.get("/v1/archives")
-def download_directory_archive(path: str = "/") -> Response:
-    ensure_workspace()
+def download_directory_archive(path: str = "/", user: CurrentUser = Depends(require_user)) -> Response:
     try:
-        filename, content = WORKSPACE.directory_zip(path)
+        filename, content = workspace_for(user).directory_zip(path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
     except FileNotFoundError as exc:
@@ -129,10 +165,9 @@ def download_directory_archive(path: str = "/") -> Response:
 
 
 @app.delete("/v1/files/{file_path:path}")
-def delete_file(file_path: str, recursive: bool = False) -> dict[str, object]:
-    ensure_workspace()
+def delete_file(file_path: str, recursive: bool = False, user: CurrentUser = Depends(require_user)) -> dict[str, object]:
     try:
-        return WORKSPACE.delete_path(file_path, recursive=recursive)
+        return workspace_for(user).delete_path(file_path, recursive=recursive)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace path.") from exc
     except FileNotFoundError as exc:
