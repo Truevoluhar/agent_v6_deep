@@ -151,7 +151,12 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
             return json.dumps(result, ensure_ascii=False)
         except (RedactionError, VisualInputError, ValueError) as exc:
             return json.dumps(
-                {"status": "not_verified", "error": str(exc), "final_pdf_created": False},
+                {
+                    "status": "not_verified",
+                    "error": str(exc),
+                    "artifact_created": False,
+                    "final_pdf_created": False,
+                },
                 ensure_ascii=False,
             )
         except Exception:  # noqa: BLE001
@@ -159,6 +164,7 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
                 {
                     "status": "not_verified",
                     "error": "Redaction failed. No final PDF was created; check agent logs.",
+                    "artifact_created": False,
                     "final_pdf_created": False,
                 }
             )

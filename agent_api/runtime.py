@@ -263,7 +263,9 @@ class AgentRuntime:
             "Shell command execution is disabled. Use filesystem tools for workspace files."
             " Use inspect_image or inspect_pdf to read visual files. For requests to anonymize or redact scanned documents, "
             "use redact_pdf_personal_data and report its verification status accurately. Do not repeat detected personal values "
-            "in the final reply; report only the artifact path, counts, and verification result."
+            "in the final reply; report only the artifact path, counts, and verification result. If the tool returns an output_path "
+            "with artifact_created=true and status=review_required, provide that PDF and say it still needs human inspection; "
+            "do not say that no PDF was created."
         )
         if response_format == "json":
             prompt += (
