@@ -140,7 +140,7 @@ def load_config(
     skills_root = env_values.get("SKILLS_ROOT", "/.agent/skills")
     enabled_toolkits = [
         item.strip()
-        for item in env_values.get("AGENT_ENABLED_TOOLKITS", "filesystem,shell").split(",")
+        for item in env_values.get("AGENT_ENABLED_TOOLKITS", "filesystem,shell,vision").split(",")
         if item.strip()
     ]
     use_checkpointer = env_values.get("AGENT_USE_CHECKPOINTER", "true").strip().lower() not in {

@@ -86,6 +86,21 @@ In the chat UI, select **JSON Schema** and edit the schema for the response. The
 
 The agent sends this using strict JSON Schema output mode through the configured OpenAI-compatible provider. Strict mode requires every object property to be listed in `required` and `additionalProperties` to be `false`. Schema adherence depends on the routed model/provider supporting structured outputs; refusals and incomplete responses may not match the schema.
 
+## Vision and PDF redaction
+
+The agent can inspect JPEG, PNG, WebP, GIF, BMP, and TIFF images, plus PDF pages. Upload a file to the workspace with `POST /v1/files`, then include the returned workspace path in the chat API request:
+
+```json
+{
+  "message": "Opiši dokument in zakrij osebne podatke.",
+  "attachments": ["/uploads/potrdilo.pdf"]
+}
+```
+
+The GUI accepts multiple image/PDF attachments with a chat message. The agent can also inspect files already in the workspace when the user provides their paths. For scanned PDFs, it renders pages for the vision model. Page images and prompts are sent to the configured model endpoint, so use an endpoint approved for the documents being processed. To redact, ask the agent to redact personal data; it uses `redact_pdf_personal_data` and writes a new PDF under `/exports/`, leaving the source unchanged.
+
+Redacted output is rasterized so the original text layer and hidden PDF content are not carried into the result. The agent checks the saved pages with OCR and a second vision pass. If either check is uncertain or finds possible personal data, it does not mark the output complete. Automated image recognition cannot guarantee perfect detection, so review the result before external release. The rasterized PDF does not have a searchable text layer.
+
 ## Persistence
 
 Persistent data lives in the repo-local `data/` folder, following the same broad shape as `agent_v5_1`:

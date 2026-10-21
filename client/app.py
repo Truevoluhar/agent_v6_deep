@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import requests
 import streamlit as st
@@ -157,7 +158,16 @@ with left:
         for message in load_messages(thread_id):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+                for attachment_path in message.get("attachments", []):
+                    st.caption(f"📎 {attachment_path}")
 
+        attachment_key = f"chat_attachments_{st.session_state.get('chat_attachment_version', 0)}"
+        chat_attachments = st.file_uploader(
+            "Priponke za to sporočilo",
+            type=["jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff", "pdf"],
+            accept_multiple_files=True,
+            key=attachment_key,
+        )
         prompt = st.chat_input("Napišite sporočilo agentu za delo v deljenem delovnem prostoru")
         if prompt:
             with st.chat_message("user"):
@@ -165,7 +175,24 @@ with left:
             with st.chat_message("assistant"):
                 with st.spinner("Agent izvaja opravilo ..."):
                     try:
-                        request_payload = {"message": prompt}
+                        if len(chat_attachments or []) > 8:
+                            raise RuntimeError("Na eno sporočilo lahko pripnete največ 8 datotek.")
+                        attachment_paths = []
+                        attachment_destination = f"uploads/chat/{uuid4()}"
+                        for uploaded_file in chat_attachments or []:
+                            uploaded_result = api_post(
+                                f"{resolve_workspace_api_url()}/v1/files",
+                                files={
+                                    "file": (
+                                        uploaded_file.name,
+                                        uploaded_file.getvalue(),
+                                        uploaded_file.type or "application/octet-stream",
+                                    )
+                                },
+                                data={"destination": attachment_destination},
+                            )
+                            attachment_paths.append(uploaded_result["path"])
+                        request_payload = {"message": prompt, "attachments": attachment_paths}
                         if response_schema_text is not None:
                             response_schema = json.loads(response_schema_text)
                             if not isinstance(response_schema, dict):
@@ -180,6 +207,10 @@ with left:
                         else:
                             st.markdown(response["reply"])
                         st.caption(f"{response['provider']} | {response['model']}")
+                        if chat_attachments:
+                            st.session_state["chat_attachment_version"] = st.session_state.get(
+                                "chat_attachment_version", 0
+                            ) + 1
                     except (json.JSONDecodeError, ValueError) as exc:
                         st.error(f"Neveljavna shema JSON: {safe_error(exc)}")
                     except Exception as exc:  # noqa: BLE001

@@ -26,7 +26,7 @@ guid, current_user = require_login()
 WORKSPACE_API = resolve_workspace_api_url()
 MAX_ENTRIES = 10_000
 MAX_PREVIEW_BYTES = 1_000_000
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 TEXT_SUFFIXES = {
     ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".yaml", ".yml",
     ".toml", ".xml", ".html", ".htm", ".css", ".js", ".jsx", ".ts", ".tsx",

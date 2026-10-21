@@ -6,6 +6,7 @@ import os
 import json
 import shutil
 import zipfile
+from uuid import uuid4
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -133,6 +134,32 @@ class WorkspaceManager:
             raise FileExistsError(raw_path)
         check_quota(self.root, len(content.encode("utf-8")), path.stat().st_size if path.is_file() else 0)
         path.write_text(content, encoding="utf-8")
+        return self.stat_path(raw_path)
+
+    def write_bytes(self, raw_path: str, content: bytes, overwrite: bool = False) -> dict[str, Any]:
+        path = self.resolve_path(raw_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.is_dir():
+            raise IsADirectoryError(raw_path)
+        if path.exists() and not overwrite:
+            raise FileExistsError(raw_path)
+        check_quota(self.root, len(content), path.stat().st_size if path.is_file() else 0)
+
+        temporary_name = f".write-{uuid4()}"
+        temporary_path = path.parent / temporary_name
+        relative_temporary = self.relative_path(temporary_path)
+        try:
+            fd = self.open_file(relative_temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if overwrite:
+                os.replace(temporary_path, path)
+            else:
+                os.link(temporary_path, path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
         return self.stat_path(raw_path)
 
     def append_text(self, raw_path: str, content: str) -> dict[str, Any]:

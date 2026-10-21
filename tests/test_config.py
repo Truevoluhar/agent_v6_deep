@@ -84,7 +84,7 @@ def test_load_provider_file_and_config(tmp_path: Path) -> None:
     assert openai_config.agent.runs_root == tmp_path / "data" / "runs"
     assert openai_config.agent.database_url == "postgresql://example"
     assert openai_config.agent.use_checkpointer is True
-    assert openai_config.agent.enabled_toolkits == ["filesystem", "shell"]
+    assert openai_config.agent.enabled_toolkits == ["filesystem", "shell", "vision"]
     assert openai_config.provider.tls_verify is True
     assert openai_config.provider.tls_ca_file is None
     assert openai_config.provider.tls_client_cert_file is None

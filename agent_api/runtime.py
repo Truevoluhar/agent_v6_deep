@@ -151,6 +151,7 @@ class AgentRuntime:
         message: str,
         response_format: str | None = None,
         response_schema: dict[str, Any] | None = None,
+        attachments: list[str] | None = None,
     ) -> Any:
         from deepagents import create_deep_agent
         from agent_api.quota_backend import QuotaFilesystemBackend
@@ -162,6 +163,16 @@ class AgentRuntime:
         # strict JSON-schema response on every turn makes the model skip tool use and
         # emit a schema-shaped guess immediately. Structured output is applied afterwards,
         # in a separate formatting pass over the agent's finished answer.
+        attached_paths = attachments or []
+        agent_message = message
+        if attached_paths:
+            attachment_lines = "\n".join(f"- {path}" for path in attached_paths)
+            agent_message += (
+                "\n\nFiles attached to this message are already in the workspace. "
+                "Inspect visual files with the vision tools when relevant:\n"
+                f"{attachment_lines}"
+            )
+
         agent_kwargs = {
             "model": build_chat_model(self.config.provider),
             "tools": self.all_tools(),
@@ -186,7 +197,7 @@ class AgentRuntime:
                     checkpointer=checkpointer,
                 )
                 result = await agent.ainvoke(
-                    {"messages": [{"role": "user", "content": message}]},
+                    {"messages": [{"role": "user", "content": agent_message}]},
                     config={
                         "configurable": {"thread_id": f"{self.user_id}:{thread_id}" if self.user_id else thread_id},
                         "recursion_limit": self.config.agent.recursion_limit,
@@ -197,7 +208,7 @@ class AgentRuntime:
                 **agent_kwargs,
             )
             result = await agent.ainvoke(
-                {"messages": [{"role": "user", "content": message}]},
+                {"messages": [{"role": "user", "content": agent_message}]},
                 config={
                     "configurable": {"thread_id": f"{self.user_id}:{thread_id}" if self.user_id else thread_id},
                     "recursion_limit": self.config.agent.recursion_limit,
@@ -250,6 +261,9 @@ class AgentRuntime:
             "Custom toolkits available in addition to the DeepAgents built-ins:\n"
             f"{toolkit_text}\n\n"
             "Shell command execution is disabled. Use filesystem tools for workspace files."
+            " Use inspect_image or inspect_pdf to read visual files. For requests to anonymize or redact scanned documents, "
+            "use redact_pdf_personal_data and report its verification status accurately. Do not repeat detected personal values "
+            "in the final reply; report only the artifact path, counts, and verification result."
         )
         if response_format == "json":
             prompt += (

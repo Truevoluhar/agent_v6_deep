@@ -42,6 +42,7 @@ class ThreadInfo(BaseModel):
 
 class MessageRequest(BaseModel):
     message: str = Field(..., min_length=1)
+    attachments: list[str] = Field(default_factory=list, max_length=8)
     response_format: Literal["json"] | None = None
     response_schema: dict[str, Any] | None = None
 
@@ -50,6 +51,7 @@ class MessageRecord(BaseModel):
     role: str
     content: str
     created_at: str
+    attachments: list[str] = Field(default_factory=list)
 
 
 class MessageResponse(BaseModel):
@@ -271,6 +273,17 @@ def get_thread_messages(thread_id: str, user: CurrentUser = Depends(require_user
 async def post_thread_message(thread_id: str, request: MessageRequest, user: CurrentUser = Depends(require_user)) -> MessageResponse:
     runtime = get_runtime(user)
     info = load_thread_info(runtime, thread_id)
+    for attachment in request.attachments:
+        try:
+            target = runtime.workspace.resolve_path(attachment)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid attachment path.") from exc
+        if not target.is_file():
+            raise HTTPException(status_code=404, detail=f"Attachment not found: {attachment}")
+        if target.suffix.lower() not in {
+            ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".pdf",
+        }:
+            raise HTTPException(status_code=415, detail=f"Unsupported visual attachment type: {attachment}")
     if request.response_format and request.response_schema is not None:
         raise HTTPException(
             status_code=422,
@@ -290,6 +303,7 @@ async def post_thread_message(thread_id: str, request: MessageRequest, user: Cur
             result = await runtime.invoke(
                 thread_id=thread_id,
                 message=request.message,
+                attachments=request.attachments,
                 response_format=request.response_format,
                 response_schema=request.response_schema,
             )
@@ -300,7 +314,16 @@ async def post_thread_message(thread_id: str, request: MessageRequest, user: Cur
             if task is not None:
                 USER_ACTIVE_TASKS.get(str(user.user_id), set()).discard(task)
         reply = extract_reply(result)
-        append_message(runtime, thread_id, MessageRecord(role="user", content=request.message, created_at=utc_now()))
+        append_message(
+            runtime,
+            thread_id,
+            MessageRecord(
+                role="user",
+                content=request.message,
+                created_at=utc_now(),
+                attachments=request.attachments,
+            ),
+        )
         append_message(runtime, thread_id, MessageRecord(role="assistant", content=reply, created_at=utc_now()))
         updated = info.model_copy(update={
             "updated_at": utc_now(),
