@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 import os
+import time
 from typing import Any
 
 from PIL import Image, ImageOps
 
 from agent_api.workspace import WorkspaceManager
+
+LOGGER = logging.getLogger(__name__)
 
 MAX_VISUAL_FILE_BYTES = 40 * 1024 * 1024
 MAX_IMAGE_PIXELS = 80_000_000
@@ -68,20 +72,48 @@ def message_text(message: Any) -> str:
     return str(content)
 
 
-async def ask_vision(provider: Any, image_content: bytes, prompt: str, *, mime_type: str = "image/png") -> str:
+async def ask_vision(
+    provider: Any,
+    image_content: bytes,
+    prompt: str,
+    *,
+    mime_type: str = "image/png",
+    operation: str = "visual_inspection",
+) -> str:
     from agent_api.model_factory import build_chat_model
 
     model = build_chat_model(provider)
-    result = await model.ainvoke(
-        [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_data_url(image_content, mime_type)}},
-                ],
-            }
-        ]
+    started = time.perf_counter()
+    LOGGER.info(
+        "Vision operation started: operation=%s model=%s image_bytes=%s",
+        operation,
+        provider.model,
+        len(image_content),
+    )
+    try:
+        result = await model.ainvoke(
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_data_url(image_content, mime_type)}},
+                    ],
+                }
+            ]
+        )
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.error(
+            "Vision operation failed: operation=%s elapsed=%.2fs error_type=%s",
+            operation,
+            time.perf_counter() - started,
+            type(exc).__name__,
+        )
+        raise
+    LOGGER.info(
+        "Vision operation completed: operation=%s elapsed=%.2fs",
+        operation,
+        time.perf_counter() - started,
     )
     return message_text(result)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 import threading
 from datetime import UTC, datetime
@@ -24,6 +25,19 @@ from agent_api.config import load_config
 from agent_api.model_factory import validate_strict_response_schema
 from agent_api.runtime import AgentRuntime
 from agent_api.workspace import WorkspaceEntry
+
+# Uvicorn's default logging config keeps application loggers at WARNING and
+# disables its access log in this service. Give our app loggers their own
+# stderr handler so request/runtime INFO diagnostics reach `docker logs`.
+APP_LOGGER = logging.getLogger("agent_api")
+APP_LOGGER.setLevel(logging.INFO)
+APP_LOGGER.propagate = False
+if not APP_LOGGER.handlers:
+    _app_log_handler = logging.StreamHandler()
+    _app_log_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    APP_LOGGER.addHandler(_app_log_handler)
 
 USER_LOCKS: dict[str, asyncio.Lock] = {}
 RUNTIME_LOCK = threading.Lock()
@@ -70,7 +84,31 @@ app = FastAPI(title="deepagents-platform agent-api", version="0.1.0")
 
 @app.middleware("http")
 async def no_store_private(request, call_next):
-    response = await call_next(request)
+    track_agent_request = (
+        request.url.path.startswith("/v1/threads") and request.method == "POST"
+    ) or request.url.path == "/v1/tools"
+    started = time.perf_counter()
+    if track_agent_request:
+        LOGGER.info("Agent API request started: %s %s", request.method, request.url.path)
+    try:
+        response = await call_next(request)
+    except Exception:
+        if track_agent_request:
+            LOGGER.exception(
+                "Agent API request failed: %s %s after %.2fs",
+                request.method,
+                request.url.path,
+                time.perf_counter() - started,
+            )
+        raise
+    if track_agent_request:
+        LOGGER.info(
+            "Agent API request completed: %s %s status=%s elapsed=%.2fs",
+            request.method,
+            request.url.path,
+            response.status_code,
+            time.perf_counter() - started,
+        )
     if request.url.path.startswith("/v1/") or request.url.path.startswith("/auth/"):
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -271,7 +309,14 @@ def get_thread_messages(thread_id: str, user: CurrentUser = Depends(require_user
 
 @app.post("/v1/threads/{thread_id}/messages", response_model=MessageResponse)
 async def post_thread_message(thread_id: str, request: MessageRequest, user: CurrentUser = Depends(require_user)) -> MessageResponse:
+    LOGGER.info("Agent request preparation started: thread=%s", thread_id)
     runtime = get_runtime(user)
+    LOGGER.info(
+        "Agent runtime ready: thread=%s provider=%s model=%s",
+        thread_id,
+        runtime.config.active_provider,
+        runtime.config.provider.model,
+    )
     info = load_thread_info(runtime, thread_id)
     for attachment in request.attachments:
         try:
@@ -294,18 +339,27 @@ async def post_thread_message(thread_id: str, request: MessageRequest, user: Cur
             validate_strict_response_schema(request.response_schema)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+    LOGGER.info("Agent request waiting for user lock: thread=%s", thread_id)
     async with user_lock(user):
+        LOGGER.info("Agent request acquired user lock: thread=%s", thread_id)
         info = load_thread_info(runtime, thread_id)
         task = asyncio.current_task()
         if task is not None:
             USER_ACTIVE_TASKS.setdefault(str(user.user_id), set()).add(task)
         try:
+            invocation_started = time.perf_counter()
+            LOGGER.info("Agent invocation started: thread=%s", thread_id)
             result = await runtime.invoke(
                 thread_id=thread_id,
                 message=request.message,
                 attachments=request.attachments,
                 response_format=request.response_format,
                 response_schema=request.response_schema,
+            )
+            LOGGER.info(
+                "Agent invocation completed: thread=%s elapsed=%.2fs",
+                thread_id,
+                time.perf_counter() - invocation_started,
             )
         except Exception as exc:
             LOGGER.exception("Agent invocation failed for thread %s", thread_id)

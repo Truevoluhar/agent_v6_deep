@@ -38,7 +38,7 @@ services:
       - 168.63.129.16
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')\""]
       interval: 15s
@@ -81,7 +81,7 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       workspace-api:
         condition: service_started
     healthcheck:

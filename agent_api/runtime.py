@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import shutil
+import logging
+import time
 from dataclasses import dataclass, field, replace
 from uuid import UUID
 from shared.user_paths import UserPaths
@@ -12,6 +14,8 @@ from agent_api.processes import BackgroundProcessManager
 from agent_api.tools.context import ToolContext
 from agent_api.tools.registry import ToolCollection, build_tool_collection
 from agent_api.workspace import WorkspaceManager
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _last_message_text(result: Any) -> str:
@@ -188,14 +192,18 @@ class AgentRuntime:
         if self.config.agent.use_checkpointer and self.config.agent.database_url:
             from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
+            LOGGER.info("Agent checkpointer setup started: thread=%s", thread_id)
             async with AsyncPostgresSaver.from_conn_string(
                 self.config.agent.database_url
             ) as checkpointer:
                 await checkpointer.setup()
+                LOGGER.info("Agent checkpointer setup completed: thread=%s", thread_id)
                 agent = create_deep_agent(
                     **agent_kwargs,
                     checkpointer=checkpointer,
                 )
+                invocation_started = time.perf_counter()
+                LOGGER.info("DeepAgent graph invocation started: thread=%s", thread_id)
                 result = await agent.ainvoke(
                     {"messages": [{"role": "user", "content": agent_message}]},
                     config={
@@ -203,16 +211,28 @@ class AgentRuntime:
                         "recursion_limit": self.config.agent.recursion_limit,
                     },
                 )
+                LOGGER.info(
+                    "DeepAgent graph invocation completed: thread=%s elapsed=%.2fs",
+                    thread_id,
+                    time.perf_counter() - invocation_started,
+                )
         else:
             agent = create_deep_agent(
                 **agent_kwargs,
             )
+            invocation_started = time.perf_counter()
+            LOGGER.info("DeepAgent graph invocation started: thread=%s", thread_id)
             result = await agent.ainvoke(
                 {"messages": [{"role": "user", "content": agent_message}]},
                 config={
                     "configurable": {"thread_id": f"{self.user_id}:{thread_id}" if self.user_id else thread_id},
                     "recursion_limit": self.config.agent.recursion_limit,
                 },
+            )
+            LOGGER.info(
+                "DeepAgent graph invocation completed: thread=%s elapsed=%.2fs",
+                thread_id,
+                time.perf_counter() - invocation_started,
             )
 
         if self.user_id is not None:

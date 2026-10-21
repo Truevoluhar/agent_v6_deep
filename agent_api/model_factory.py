@@ -1,11 +1,65 @@
 from __future__ import annotations
 
+import logging
+import time
+import uuid
 from typing import Any
 
 import httpx
 
 from agent_api.config import ProviderConfig
 from agent_api.tls import build_ssl_context, configure_process_tls
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _record_model_request_start(request: httpx.Request, model: str) -> None:
+    request_id = uuid.uuid4().hex[:8]
+    request.extensions["agent_api_model_request_id"] = request_id
+    request.extensions["agent_api_model_request_started"] = time.perf_counter()
+    LOGGER.info("Provider request started: model=%s request=%s", model, request_id)
+
+
+def _record_model_response(response: httpx.Response, model: str) -> None:
+    request = response.request
+    request_id = request.extensions.get("agent_api_model_request_id", "unknown")
+    started = request.extensions.get("agent_api_model_request_started")
+    elapsed = time.perf_counter() - started if isinstance(started, float) else -1.0
+    LOGGER.info(
+        "Provider response received: model=%s request=%s status=%s elapsed=%.2fs",
+        model,
+        request_id,
+        response.status_code,
+        elapsed,
+    )
+
+
+def _sync_request_hook(model: str):
+    def hook(request: httpx.Request) -> None:
+        _record_model_request_start(request, model)
+
+    return hook
+
+
+def _sync_response_hook(model: str):
+    def hook(response: httpx.Response) -> None:
+        _record_model_response(response, model)
+
+    return hook
+
+
+def _async_request_hook(model: str):
+    async def hook(request: httpx.Request) -> None:
+        _record_model_request_start(request, model)
+
+    return hook
+
+
+def _async_response_hook(model: str):
+    async def hook(response: httpx.Response) -> None:
+        _record_model_response(response, model)
+
+    return hook
 
 
 def validate_strict_response_schema(schema: dict[str, Any]) -> None:
@@ -74,8 +128,22 @@ def build_chat_model(
         "temperature": provider.temperature,
         "timeout": provider.timeout_seconds,
         "max_retries": provider.max_retries,
-        "http_client": httpx.Client(verify=ssl_context, timeout=provider.timeout_seconds),
-        "http_async_client": httpx.AsyncClient(verify=ssl_context, timeout=provider.timeout_seconds),
+        "http_client": httpx.Client(
+            verify=ssl_context,
+            timeout=provider.timeout_seconds,
+            event_hooks={
+                "request": [_sync_request_hook(provider.model)],
+                "response": [_sync_response_hook(provider.model)],
+            },
+        ),
+        "http_async_client": httpx.AsyncClient(
+            verify=ssl_context,
+            timeout=provider.timeout_seconds,
+            event_hooks={
+                "request": [_async_request_hook(provider.model)],
+                "response": [_async_response_hook(provider.model)],
+            },
+        ),
     }
     if extra_body is not None:
         chat_model_kwargs["extra_body"] = extra_body
