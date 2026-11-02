@@ -1,16 +1,15 @@
 ---
 name: file-analysis
-description: Inspect uploaded files and large documents, summarizing findings and assumptions.
+description: Preglej naložene datoteke in velike dokumente ter povzemaj ugotovitve in predpostavke.
 ---
 
-# File Analysis
+# Analiza datotek
 
-Use this skill when the user asks for targeted inspection of uploaded files, large documents, or mixed project artifacts.
+Uporabi to veščino, ko uporabnik zahteva ciljni pregled naloženih datotek, velikih dokumentov ali mešanih projektnih artefaktov.
 
-Workflow:
-- Identify the file types and sizes before loading them deeply.
-- Prefer summaries, indexes, and extracted artifacts over dumping raw file contents into the response.
-- Write durable outputs to `/workspace/analysis/` with clear names.
-- If inputs are large, inspect selectively and record assumptions or skipped sections.
-- When helpful, leave a short Markdown report describing findings, evidence, and next steps.
-
+Potek dela:
+- Pred globljim branjem določi vrste in velikosti datotek.
+- Raje pripravi povzetke, kazala in izpeljane artefakte kot izpis surove vsebine.
+- Trajne rezultate zapiši v `/workspace/analysis/` z jasnimi imeni.
+- Pri velikih vhodih pregleduj selektivno ter zabeleži predpostavke ali preskočene dele.
+- Kadar je koristno, pusti kratek Markdown zapis z ugotovitvami, dokazi in naslednjimi koraki.

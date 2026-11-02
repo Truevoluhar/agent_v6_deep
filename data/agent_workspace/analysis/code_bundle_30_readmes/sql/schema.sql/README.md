@@ -1,9 +1,9 @@
 # schema.sql
 
-- **Source file:** `/uploads/code_bundle_30/sql/schema.sql`
-- **Language:** SQL
-- **Purpose:** Defines a `users` database table schema.
-- **Key functions/classes:** `create table users` statement with columns `id`, `email`, and `created_at`.
-- **Inputs:** Executed by a SQL database engine or migration tool.
-- **Outputs:** Creates a table where `id` is the primary key, `email` is required and unique, and `created_at` is required text.
-- **Notable implementation details:** Uses generic SQL column types (`integer`, `text`); timestamp values are represented as text rather than a database-native datetime type.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/sql/schema.sql`
+- **Jezik:** SQL
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu SQL.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

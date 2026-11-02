@@ -1,9 +1,9 @@
 # Main.scala
 
-- **Source file:** `/uploads/code_bundle_30/scala/Main.scala`
-- **Language:** Scala
-- **Purpose:** Minimal Scala application that prints a greeting.
-- **Key functions/classes:** Singleton object `Main` extends `App`, which supplies the application entry point.
-- **Inputs:** No input is consumed.
-- **Outputs:** Prints `hello scala` to standard output.
-- **Notable implementation details:** Uses the `App` trait to execute the object body as the program startup logic.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/scala/Main.scala`
+- **Jezik:** Scala
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Scala.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

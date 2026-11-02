@@ -1,9 +1,9 @@
 # lib.rs
 
-- **Source file:** `/uploads/code_bundle_30/rust/lib.rs`
-- **Language:** Rust
-- **Purpose:** Provides a small reusable predicate for checking integer parity.
-- **Key functions/classes:** `pub fn is_even(value: i32) -> bool`.
-- **Inputs:** A signed 32-bit integer.
-- **Outputs:** Returns `true` when the value is divisible by 2, otherwise `false`.
-- **Notable implementation details:** The function is public for library consumers and uses the remainder operator `%`.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/rust/lib.rs`
+- **Jezik:** Rust
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Rust.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

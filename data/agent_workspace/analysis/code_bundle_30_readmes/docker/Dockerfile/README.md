@@ -1,9 +1,9 @@
 # Dockerfile
 
-- **Source file:** `/uploads/code_bundle_30/docker/Dockerfile`
-- **Language:** Dockerfile
-- **Purpose:** Defines a lightweight Python container image for running an `app.py` application.
-- **Key functions/classes:** Docker instructions: `FROM`, `WORKDIR`, `COPY`, and `CMD`.
-- **Inputs:** Build context contents are copied into `/app`; expects `app.py` to exist in the image.
-- **Outputs:** Produces a container image that runs `python app.py` by default.
-- **Notable implementation details:** Uses the `python:3.12-slim` base image and copies the entire build context into the working directory.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/docker/Dockerfile`
+- **Jezik:** Dockerfile
+- **Namen:** Definira lahko Python sliko vsebnika za zagon aplikacije `app.py`.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

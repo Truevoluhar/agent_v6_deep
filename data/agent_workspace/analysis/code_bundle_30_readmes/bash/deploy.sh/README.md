@@ -1,9 +1,9 @@
 # deploy.sh
 
-- **Source file:** `/uploads/code_bundle_30/bash/deploy.sh`
-- **Language:** Bash shell script
-- **Purpose:** Provides a minimal deployment entry point that announces an application deployment.
-- **Key functions/classes:** None; the script executes top-level shell commands.
-- **Inputs:** No command-line arguments or environment variables are read explicitly.
-- **Outputs:** Writes `deploying application` to standard output.
-- **Notable implementation details:** Uses `#!/usr/bin/env bash` for portable Bash lookup and `set -euo pipefail` to fail on command errors, unset variables, and pipeline failures.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/bash/deploy.sh`
+- **Jezik:** Bash
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Bash.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

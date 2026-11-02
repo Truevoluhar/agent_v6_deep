@@ -15,7 +15,7 @@ def _render(payload: Any) -> str:
 def _safe_call(fn):
     try:
         return fn()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return _render({"error": str(exc), "error_type": type(exc).__name__})
 
 

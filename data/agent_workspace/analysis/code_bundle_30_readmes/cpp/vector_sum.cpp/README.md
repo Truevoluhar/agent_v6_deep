@@ -1,9 +1,9 @@
 # vector_sum.cpp
 
-- **Source file:** `/uploads/code_bundle_30/cpp/vector_sum.cpp`
-- **Language:** C++
-- **Purpose:** Computes and prints the sum of a small in-memory integer vector.
-- **Key functions/classes:** `main()` creates the data set, accumulates the sum, and prints it.
-- **Inputs:** No external input; values are hard-coded as `{1, 2, 3}`.
-- **Outputs:** Prints `6` followed by a newline to standard output.
-- **Notable implementation details:** Uses `std::vector<int>` and a range-based `for` loop; output is written with `std::cout << std::endl`.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/cpp/vector_sum.cpp`
+- **Jezik:** C++
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu C++.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

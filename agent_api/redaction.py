@@ -570,8 +570,8 @@ def _regions(
             )
         )
 
-    # Če smo morali zavrniti katerokoli zaznavo,
-    # rezultat ni v celoti preverjen.
+
+
     if rejected_count:
         uncertain = True
 
@@ -635,7 +635,7 @@ def _ocr_boxes(image: Image.Image) -> tuple[list[dict[str, Any]], str]:
             config="--psm 11",
             output_type=Output.DICT,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise RedactionError("OCR verification failed; the PDF is not marked as complete.") from exc
 
     words: list[dict[str, Any]] = []
@@ -696,7 +696,7 @@ def _ocr_candidate_regions(words: list[dict[str, Any]]) -> list[Region]:
         line_text = "".join(text_parts)
         for kind, pattern in patterns:
             for match in pattern.finditer(line_text):
-                # For labelled values, mask only the value and leave its field label visible.
+
                 start, end = match.span(1) if match.lastindex else match.span()
                 value = match.group(match.lastindex) if match.lastindex else match.group(0)
                 if kind == "emso" and not _looks_like_emso(value):
@@ -710,7 +710,7 @@ def _ocr_candidate_regions(words: list[dict[str, Any]]) -> list[Region]:
                 top = min(word["top"] for word in matched_words)
                 right = max(word["left"] + word["width"] for word in matched_words)
                 bottom = max(word["top"] + word["height"] for word in matched_words)
-                # Coordinates are normalized later by _ocr_region; keep pixel bounds here.
+
                 regions.append(
                     Region(
                         kind=kind,
@@ -795,7 +795,7 @@ def _region_pixels(
         padding = max(padding, int((bottom - top) * 0.35) + 2)
     else:
         padding = max(padding, int((y1 - y0) * height * 0.18) + 2)
-    # Pad in proportion to text height so antialiased edges and imperfect coordinates are covered.
+
     return (
         max(0, int(x0 * width) - padding),
         max(0, int(y0 * height) - padding),
@@ -818,8 +818,8 @@ def _apply_regions(
 
     draw = ImageDraw.Draw(output)
 
-    # Če so OCR rezultati že na voljo, jih ponovno uporabi.
-    # Tesseract zaženi samo, če jih nimamo.
+
+
     if any(region.value for region in regions):
         words = (
             ocr_words
@@ -932,8 +932,8 @@ async def _review_uncertain_tiles(provider: Any, image: Image.Image, page_number
                 max_tokens=14096,
             )
             regions, _ = _regions(_json_object(response), "redactions")
-        except Exception:  # noqa: BLE001
-            # Preserve the usable full-page findings; the caller will keep the page review-required.
+        except Exception:
+
             return findings
         for region in regions:
             x0, y0, x1, y1 = region.bbox
@@ -964,7 +964,7 @@ async def redact_pdf(
     content = read_workspace_file(workspace, input_path, max_bytes=MAX_PDF_BYTES)
     try:
         reader = PdfReader(io.BytesIO(content), strict=False)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise RedactionError("Input could not be opened as a PDF.") from exc
     if reader.is_encrypted:
         raise RedactionError("Encrypted PDFs are not supported for redaction.")
@@ -977,7 +977,7 @@ async def redact_pdf(
     )
     try:
         source = pdfium.PdfDocument(content)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise RedactionError("Input could not be rendered as a PDF.") from exc
 
     redacted_pages: list[Image.Image] = []
@@ -1008,7 +1008,7 @@ async def redact_pdf(
             total_render_pixels += original.width * original.height
             if total_render_pixels > MAX_TOTAL_RENDER_PIXELS:
                 raise RedactionError("PDF exceeds the total rendering limit.")
-            # ZAČASNI TEST: krajši prompt samo za tretjo stran
+
             if page_number == 3:
                 detection_prompt = (
                     "Preglej sliko in poišči osebne podatke za anonimizacijo. "
@@ -1020,7 +1020,7 @@ async def redact_pdf(
                 )
             else:
                 detection_prompt = DETECTION_PROMPT
-            
+
             detection_text = await ask_vision(
                 provider,
                 _image_bytes(original),
@@ -1145,7 +1145,7 @@ async def redact_pdf(
     finally:
         source.close()
 
-    # Re-open and review serialized pages. Newly found regions are covered and the PDF is rebuilt.
+
     output_bytes = b""
     for output_pass in range(0 if SINGLE_PASS_REDACTION else MAX_REDACTION_PASSES + 2):
         output_bytes = _build_raster_pdf(redacted_pages)
@@ -1230,7 +1230,7 @@ async def redact_pdf(
         if output_pass == MAX_REDACTION_PASSES + 1:
             review_required_pages.update(range(1, len(page_values) + 1))
 
-    # Include the last remediation pass, even when it exhausted the review limit.
+
     output_bytes = _build_raster_pdf(redacted_pages)
     final_reader = PdfReader(io.BytesIO(output_bytes), strict=False)
     if len(final_reader.pages) != len(page_values) or any(

@@ -1,9 +1,9 @@
 # Main.kt
 
-- **Source file:** `/uploads/code_bundle_30/kotlin/Main.kt`
-- **Language:** Kotlin
-- **Purpose:** Minimal Kotlin executable that prints a greeting.
-- **Key functions/classes:** Top-level `main()` function.
-- **Inputs:** No input is consumed.
-- **Outputs:** Prints `hello kotlin` to standard output.
-- **Notable implementation details:** Uses Kotlin's top-level function support and `println` from the standard library.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/kotlin/Main.kt`
+- **Jezik:** Kotlin
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Kotlin.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

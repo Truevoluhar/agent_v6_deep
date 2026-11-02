@@ -62,7 +62,7 @@ def api_delete(url: str, **kwargs: Any) -> Any:
 def load_threads() -> list[dict[str, Any]]:
     try:
         return api_get(f"{resolve_agent_api_url()}/v1/threads")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         st.sidebar.error(f"Pogovorov ni bilo mogoče naložiti: {safe_error(exc)}")
         return []
 
@@ -70,7 +70,7 @@ def load_threads() -> list[dict[str, Any]]:
 def load_messages(thread_id: str) -> list[dict[str, Any]]:
     try:
         return api_get(f"{resolve_agent_api_url()}/v1/threads/{thread_id}/messages")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         st.error(f"Sporočil ni bilo mogoče naložiti: {safe_error(exc)}")
         return []
 
@@ -89,7 +89,7 @@ with st.sidebar:
         try:
             thread = api_post(f"{resolve_agent_api_url()}/v1/threads")
             st.session_state.thread_id = thread["thread_id"]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             st.error(f"Pogovora ni bilo mogoče ustvariti: {safe_error(exc)}")
 
     threads = load_threads()
@@ -123,7 +123,7 @@ with st.sidebar:
         try:
             result = api_post(f"{resolve_workspace_api_url()}/v1/files", files=files, data=data)
             st.success(f"Datoteka je naložena v {result['path']}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             st.error(f"Nalaganje ni uspelo: {safe_error(exc)}")
 
     st.page_link(
@@ -213,7 +213,7 @@ with left:
                             ) + 1
                     except (json.JSONDecodeError, ValueError) as exc:
                         st.error(f"Neveljavna shema JSON: {safe_error(exc)}")
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         st.error(f"Zahteva za agenta ni bilo mogoče izvesti: {safe_error(exc)}")
             st.rerun()
 

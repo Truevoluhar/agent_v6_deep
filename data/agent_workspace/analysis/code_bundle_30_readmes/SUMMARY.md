@@ -1,6 +1,6 @@
-# Code Bundle 30 README Summary
+# Povzetek README za Code Bundle 30
 
-Processed files and generated README locations:
+Obdelane datoteke in lokacije ustvarjenih README datotek:
 
 - `/uploads/code_bundle_30/bash/deploy.sh` -> `/analysis/code_bundle_30_readmes/bash/deploy.sh/README.md`
 - `/uploads/code_bundle_30/c/main.c` -> `/analysis/code_bundle_30_readmes/c/main.c/README.md`

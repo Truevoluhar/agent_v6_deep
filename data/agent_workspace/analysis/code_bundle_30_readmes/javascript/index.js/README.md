@@ -1,9 +1,9 @@
 # index.js
 
-- **Source file:** `/uploads/code_bundle_30/javascript/index.js`
-- **Language:** JavaScript
-- **Purpose:** Demonstrates summing an array of numbers and printing the result.
-- **Key functions/classes:** `sum(values)` reduces an array to a numeric total.
-- **Inputs:** `sum` accepts an array-like list of numeric values; the script calls it with `[1, 2, 3, 4]`.
-- **Outputs:** Returns the computed sum from `sum`; prints `10` to the console in the sample invocation.
-- **Notable implementation details:** Uses `Array.prototype.reduce` with an initial accumulator of `0`; no validation is performed for non-numeric values.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/javascript/index.js`
+- **Jezik:** JavaScript
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu JavaScript.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

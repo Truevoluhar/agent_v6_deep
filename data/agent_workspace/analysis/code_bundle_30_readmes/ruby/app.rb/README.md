@@ -1,9 +1,9 @@
 # app.rb
 
-- **Source file:** `/uploads/code_bundle_30/ruby/app.rb`
-- **Language:** Ruby
-- **Purpose:** Defines a text title-casing helper and demonstrates it.
-- **Key functions/classes:** `titleize(text)` splits text into words, capitalizes each word, and rejoins them.
-- **Inputs:** A string passed to `titleize`; the script uses `ruby sample app`.
-- **Outputs:** Returns the titleized string; prints `Ruby Sample App` in the sample invocation.
-- **Notable implementation details:** Uses `split`, symbol-to-proc shorthand `map(&:capitalize)`, and `join(' ')`; whitespace is normalized to single spaces.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/ruby/app.rb`
+- **Jezik:** Ruby
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Ruby.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

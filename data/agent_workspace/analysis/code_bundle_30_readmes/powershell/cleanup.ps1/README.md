@@ -1,9 +1,9 @@
 # cleanup.ps1
 
-- **Source file:** `/uploads/code_bundle_30/powershell/cleanup.ps1`
-- **Language:** PowerShell
-- **Purpose:** Previews removal of files in a target directory.
-- **Key functions/classes:** Script parameter `Path`; pipeline `Get-ChildItem ... | Remove-Item -WhatIf`.
-- **Inputs:** Optional `-Path` string parameter defaulting to `.`.
-- **Outputs:** Emits PowerShell `-WhatIf` messages describing which files would be removed.
-- **Notable implementation details:** Filters to files with `-File`; `Remove-Item -WhatIf` prevents actual deletion, making the script a dry run by default.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/powershell/cleanup.ps1`
+- **Jezik:** PowerShell
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu PowerShell.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

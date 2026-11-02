@@ -1,9 +1,9 @@
 # main.go
 
-- **Source file:** `/uploads/code_bundle_30/go/main.go`
-- **Language:** Go
-- **Purpose:** Minimal Go executable that prints a greeting.
-- **Key functions/classes:** `main()` is the program entry point.
-- **Inputs:** No input is consumed.
-- **Outputs:** Prints `hello from go` followed by a newline to standard output.
-- **Notable implementation details:** Declares package `main` and imports `fmt` solely for `fmt.Println`.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/go/main.go`
+- **Jezik:** Go
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Go.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

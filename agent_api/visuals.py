@@ -46,7 +46,7 @@ def normalize_image(content: bytes) -> tuple[bytes, str, int, int]:
             image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
     except VisualInputError:
         raise
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise VisualInputError("File is not a supported raster image.") from exc
 
     output = io.BytesIO()
@@ -90,18 +90,18 @@ async def ask_vision(
 
     from agent_api.model_factory import build_chat_model
 
-    # Preverimo dovoljeno število izhodnih tokenov.
+
     if max_tokens <= 0:
         raise ValueError("max_tokens must be positive")
 
     is_bifrost = provider.type == "bifrost_gateway"
 
-    # Za Bifrost/vLLM privzeto izklopimo thinking.
-    # Pri drugih ponudnikih pustimo privzeto obnašanje.
+
+
     if enable_thinking is None and is_bifrost:
         enable_thinking = False
 
-    # Dodatne nastavitve za vLLM.
+
     additional_body = {}
 
     if is_bifrost and enable_thinking is not None:
@@ -109,8 +109,8 @@ async def ask_vision(
             "enable_thinking": enable_thinking
         }
 
-    # build_chat_model zdaj sestavi response_format
-    # in chat_template_kwargs v en sam extra_body.
+
+
     model = build_chat_model(
         provider,
         response_schema=response_schema,
@@ -179,13 +179,13 @@ async def ask_vision(
             len(tool_calls),
         )
 
-        # Odrezan odgovor ni uporaben.
+
         if finish_reason in {"length", "max_tokens"}:
             raise VisualInputError(
                 f"Vision response truncated: {operation}"
             )
 
-        # Vision klic ne sme izvajati orodij.
+
         if tool_calls or finish_reason in {
             "tool_calls",
             "function_call",
@@ -205,7 +205,7 @@ async def ask_vision(
                 f"Empty vision response: {operation}"
             )
 
-        # JSON preverjamo samo, kadar je podana shema.
+
         if response_schema is not None:
             try:
                 parsed = json.loads(content)
@@ -220,8 +220,8 @@ async def ask_vision(
                     f"a JSON object: {operation}"
                 )
 
-            # Združljivost z redaction.py,
-            # ki pričakuje JSON kot string.
+
+
             content = json.dumps(
                 parsed,
                 ensure_ascii=False,

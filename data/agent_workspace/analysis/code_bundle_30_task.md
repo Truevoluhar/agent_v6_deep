@@ -1,9 +1,7 @@
-# Code Bundle Task
+# Naloga Code Bundle
 
-Input zip: `/uploads/code_bundle_30.zip`
-Expanded source tree: `/uploads/code_bundle_30/`
-Desired output root: `/analysis/code_bundle_30_readmes/`
+Vhodni zip: `/uploads/code_bundle_30.zip`
+Razširjeno izvorno drevo: `/uploads/code_bundle_30/`
+Želeni izhodni koren: `/analysis/code_bundle_30_readmes/`
 
-For each code file in the bundle, create a sibling `README.md` in the output root
-that explains the file purpose, language, main functions/classes, inputs/outputs,
-and any noteworthy implementation details.
+Za vsako kodno datoteko v paketu ustvari sosednji `README.md` v izhodnem korenu, ki pojasni namen datoteke, jezik, glavne funkcije ali razrede, vhode in izhode ter pomembne izvedbene podrobnosti.

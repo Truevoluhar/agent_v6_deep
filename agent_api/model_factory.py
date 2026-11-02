@@ -138,8 +138,8 @@ def build_chat_model(
             "type": "json_object"
         }
 
-    # Dodatne nastavitve za posamezno opravilo,
-    # npr. chat_template_kwargs za vLLM.
+
+
     if additional_body:
         for key, value in additional_body.items():
             if key == "response_format" and (

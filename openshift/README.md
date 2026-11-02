@@ -1,29 +1,26 @@
-# OpenShift deployment
+# Namestitev na OpenShift
 
-This folder adds an OpenShift deployment path without changing the existing
-Docker Compose development deployment.
+Ta mapa dodaja pot za namestitev na OpenShift, ne da bi spreminjala obstoječo razvojno postavitev z Docker Compose.
 
-## What is included
+## Kaj je vključeno
 
-- Binary `BuildConfig` objects for `agent-api`, `workspace-api`, and `client`.
-- OpenShift-specific Dockerfiles under `openshift/dockerfiles/`.
-- Deployments, Services, and Routes for the app services.
-- PostgreSQL using the OpenShift-friendly SCL PostgreSQL image.
-- Persistent storage for PostgreSQL and the shared application data directory.
+- Binarni `BuildConfig` objekti za `agent-api`, `workspace-api` in `client`.
+- OpenShift Dockerfile datoteke v `openshift/dockerfiles/`.
+- Deploymenti, Service-i in Route-i za aplikacijske storitve.
+- PostgreSQL z OpenShift-prijazno SCL PostgreSQL sliko.
+- Trajna shramba za PostgreSQL in skupno aplikacijsko mapo podatkov.
 
-The application code, existing Dockerfiles, and `docker-compose.yml` remain the
-development setup.
+Aplikacijska koda, obstoječi Dockerfile-i in `docker-compose.yml` ostanejo razvojna postavitev.
 
-## Deploy
+## Namestitev
 
-From the repository root:
+Iz korena repozitorija:
 
 ```bash
 oc new-project agent-platform
 ```
 
-Create the runtime secret before applying the deployment. Keep the PostgreSQL
-password in `POSTGRESQL_PASSWORD` and `DATABASE_URL` identical:
+Pred uporabo ustvarite runtime secret. Geslo v `POSTGRESQL_PASSWORD` in v `DATABASE_URL` mora biti enako:
 
 ```bash
 oc create secret generic agent-platform-secrets \
@@ -38,16 +35,15 @@ oc create secret generic agent-platform-secrets \
   --from-literal=VLLM_API_KEY='dummy'
 ```
 
-`secret.example.yaml` is provided as a template if your deployment process
-prefers manifest-managed secrets.
+`secret.example.yaml` je predloga, če vaš proces raje upravlja skrivnosti z manifesti.
 
-Apply the OpenShift resources:
+Uporabite OpenShift vire:
 
 ```bash
 oc apply -k openshift
 ```
 
-Then build the images from the local repository:
+Nato zgradite slike iz lokalnega repozitorija:
 
 ```bash
 oc start-build agent-api --from-dir=. --follow
@@ -55,7 +51,7 @@ oc start-build workspace-api --from-dir=. --follow
 oc start-build client --from-dir=. --follow
 ```
 
-Update the public URLs after the routes exist:
+Po ustvarjanju route-ov nastavite javna URL-ja:
 
 ```bash
 oc get route client agent-api
@@ -64,25 +60,19 @@ oc patch configmap agent-platform-config --type merge \
 oc rollout restart deployment/agent-api deployment/client
 ```
 
-Open the `client` route in a browser.
+V brskalniku odprite route `client`.
 
-## Configuration notes
+## Konfiguracijske opombe
 
-- `ACTIVE_PROVIDER` defaults to `openai` in `configmap.yaml`.
-- For Bifrost or vLLM, set `ACTIVE_PROVIDER` and the matching base URL/API key
-  values in the config map and secret.
-- Optional TLS certificate files can be mounted by creating a secret named
-  `agent-platform-certificates`; it is mounted at `/certs` in `agent-api`.
-- The shared app data PVC requests `ReadWriteMany` because the three app pods
-  all use `/data`. If your cluster does not provide RWX storage, keep the app
-  services co-located another way or provide an RWX-capable storage class.
-- The services are configured for one replica each. Keep `agent-api` at one
-  replica unless the runtime locking/checkpoint behavior is reviewed for
-  multi-replica use.
+- `ACTIVE_PROVIDER` je v `configmap.yaml` privzeto `openai`.
+- Za Bifrost ali vLLM nastavite `ACTIVE_PROVIDER` ter pripadajoči osnovni URL in API ključ v config mapu oziroma secretu.
+- Neobvezne TLS certifikate lahko priklopite s secretom `agent-platform-certificates`; v `agent-api` je na voljo v `/certs`.
+- Skupni PVC aplikacije zahteva `ReadWriteMany`, ker vse tri aplikacijske pod-e uporabljajo `/data`. Če gruča nima RWX shrambe, zagotovite RWX storage class ali drugo ustrezno souporabo podatkov.
+- Storitve so nastavljene na eno repliko. `agent-api` naj ostane pri eni repliki, dokler runtime zaklepanje in checkpoint vedenje nista pregledana za več replik.
 
-## Development deployment
+## Razvojna postavitev
 
-The existing local deployment is unchanged:
+Obstoječa lokalna postavitev ostane nespremenjena:
 
 ```bash
 cp .env.example .env

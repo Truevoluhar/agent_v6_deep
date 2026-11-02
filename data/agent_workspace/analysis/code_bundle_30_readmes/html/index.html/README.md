@@ -1,9 +1,9 @@
 # index.html
 
-- **Source file:** `/uploads/code_bundle_30/html/index.html`
-- **Language:** HTML
-- **Purpose:** Provides a minimal web page containing a heading.
-- **Key functions/classes:** Main document elements: `<!doctype html>`, `<html>`, `<body>`, and `<h1>`.
-- **Inputs:** Loaded by a browser or HTML renderer; no forms or scripts accept user input.
-- **Outputs:** Displays the heading `Sample Site`.
-- **Notable implementation details:** The document is intentionally barebones and omits metadata such as `<head>`, charset, title, and linked assets.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/html/index.html`
+- **Jezik:** HTML
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu HTML.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

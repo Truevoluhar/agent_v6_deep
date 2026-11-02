@@ -1,9 +1,9 @@
 # App.java
 
-- **Source file:** `/uploads/code_bundle_30/java/App.java`
-- **Language:** Java
-- **Purpose:** Minimal Java application that prints a greeting.
-- **Key functions/classes:** Class `App`; static method `main(String[] args)` is the entry point.
-- **Inputs:** Accepts the standard `args` array but does not use it.
-- **Outputs:** Prints `Hello Java` to standard output.
-- **Notable implementation details:** Uses `System.out.println`; the class is in the default package.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/java/App.java`
+- **Jezik:** Java
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Java.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

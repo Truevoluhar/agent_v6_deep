@@ -1,9 +1,9 @@
 # index.php
 
-- **Source file:** `/uploads/code_bundle_30/php/index.php`
-- **Language:** PHP
-- **Purpose:** Defines and demonstrates a function that squares an integer.
-- **Key functions/classes:** `square(int $value): int` returns the product of the input with itself.
-- **Inputs:** `square` takes one integer; the script invokes it with `9`.
-- **Outputs:** Returns an integer from `square`; echoes `81` in the sample invocation.
-- **Notable implementation details:** Uses PHP scalar type declarations and a return type; no overflow or input range checks are performed.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/php/index.php`
+- **Jezik:** PHP
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu PHP.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

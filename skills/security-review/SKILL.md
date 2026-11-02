@@ -1,16 +1,15 @@
 ---
 name: security-review
-description: Perform an authorized defensive security review of code, dependencies, and deployments.
+description: Izvedi pooblaščen obrambni varnostni pregled kode, odvisnosti in namestitev.
 ---
 
-# Security Review
+# Varnostni pregled
 
-Use this skill for authorized defensive vulnerability review and remediation planning.
+Uporabi to veščino za pooblaščen obrambni pregled ranljivosti in načrt sanacije.
 
-Workflow:
-- Confirm the scope is defensive review of a repository, dependency set, or deployment artifact.
-- Gather evidence from source, configuration, dependency metadata, and scanner output when available.
-- Distinguish confirmed findings from hypotheses.
-- For each finding, include exact location, impact, confidence, remediation, and validation steps.
-- Do not treat raw scanner output as automatically confirmed vulnerability evidence.
-
+Potek dela:
+- Potrdi, da je obseg obrambni pregled repozitorija, odvisnosti ali deployment artefakta.
+- Zberi dokaze iz izvorne kode, konfiguracije, metapodatkov odvisnosti in izpisa skenerjev, kadar so na voljo.
+- Loči potrjene ugotovitve od hipotez.
+- Za vsako ugotovitev vključi točno lokacijo, vpliv, zanesljivost, sanacijo in korake preverjanja.
+- Surovega izpisa skenerja ne obravnavaj kot samodejno potrjen dokaz ranljivosti.

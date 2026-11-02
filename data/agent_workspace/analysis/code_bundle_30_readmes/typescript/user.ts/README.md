@@ -1,9 +1,9 @@
 # user.ts
 
-- **Source file:** `/uploads/code_bundle_30/typescript/user.ts`
-- **Language:** TypeScript
-- **Purpose:** Defines a user data shape and a formatter for user values.
-- **Key functions/classes:** Exported interface `User`; exported function constant `formatUser`.
-- **Inputs:** `formatUser` accepts a `User` object with string `id` and `name` fields.
-- **Outputs:** Returns a string formatted as `<id>:<name>`.
-- **Notable implementation details:** Uses an arrow function and template literal; the `User` interface is compile-time only and produces no runtime validation.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/typescript/user.ts`
+- **Jezik:** TypeScript
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu TypeScript.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

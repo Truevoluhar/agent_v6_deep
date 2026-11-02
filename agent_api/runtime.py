@@ -163,11 +163,11 @@ class AgentRuntime:
 
         from agent_api.model_factory import build_chat_model
 
-        # The agent's own model must stay unconstrained: DeepAgents relies on multi-turn
-        # tool calls (skills, file writes, sub-agents) to do real work, and forcing a
-        # strict JSON-schema response on every turn makes the model skip tool use and
-        # emit a schema-shaped guess immediately. Structured output is applied afterwards,
-        # in a separate formatting pass over the agent's finished answer.
+
+
+
+
+
         attached_paths = attachments or []
         agent_message = message
         if attached_paths:
@@ -282,7 +282,7 @@ class AgentRuntime:
         invoke_kwargs = {
             "max_tokens": 2048,
         }
-        
+
         invoke_kwargs["extra_body"] = {
             "chat_template_kwargs": {
                 "enable_thinking": False,

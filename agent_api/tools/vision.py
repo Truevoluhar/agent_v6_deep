@@ -75,7 +75,7 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
             )
         except (VisualInputError, ValueError) as exc:
             return json.dumps({"error": str(exc)}, ensure_ascii=False)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return json.dumps({"error": "Image inspection failed. Check vision-provider support and agent logs."})
 
     @tool(parse_docstring=True)
@@ -144,7 +144,7 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
                 document.close()
         except (VisualInputError, ValueError) as exc:
             return json.dumps({"error": str(exc)}, ensure_ascii=False)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return json.dumps({"error": "PDF inspection failed. Check PDF validity and vision-provider support."})
 
     @tool(parse_docstring=True)
@@ -171,7 +171,7 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
                 "artifact_created": False,
                 "final_pdf_created": False,
             }, ensure_ascii=False)
-        except Exception:  # noqa: BLE001
+        except Exception:
             LOGGER.error(
                 "PDF redaction failed unexpectedly: error_type=%s",
                 type(exc).__name__,

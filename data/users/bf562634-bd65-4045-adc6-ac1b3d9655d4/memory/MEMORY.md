@@ -1,1 +1,1 @@
-# User memory
+Spomin še nima zapisanih podatkov.

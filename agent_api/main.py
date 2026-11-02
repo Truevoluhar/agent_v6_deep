@@ -26,9 +26,9 @@ from agent_api.model_factory import validate_strict_response_schema
 from agent_api.runtime import AgentRuntime
 from agent_api.workspace import WorkspaceEntry
 
-# Uvicorn's default logging config keeps application loggers at WARNING and
-# disables its access log in this service. Give our app loggers their own
-# stderr handler so request/runtime INFO diagnostics reach `docker logs`.
+
+
+
 APP_LOGGER = logging.getLogger("agent_api")
 APP_LOGGER.setLevel(logging.INFO)
 APP_LOGGER.propagate = False

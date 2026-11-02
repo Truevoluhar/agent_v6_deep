@@ -1,16 +1,15 @@
 ---
 name: code-review
-description: Review code changes for defects, regressions, security risks, and missing tests.
+description: Preglej spremembe kode za napake, regresije, varnostna tveganja in manjkajoče teste.
 ---
 
-# Code Review
+# Pregled kode
 
-Use this skill for repository review, patch review, or change-risk analysis.
+Uporabi to veščino za pregled repozitorija, pregled patcha ali analizo tveganja sprememb.
 
-Workflow:
-- Inspect repository instructions and requested scope first.
-- Detect the language, build system, and test surface before making claims.
-- Run safe checks when available and note when something could not be executed.
-- Produce evidence-backed findings with file paths, concrete impact, and remediation guidance.
-- Keep optional patches or generated artifacts separate unless the user asked for in-place edits.
-
+Potek dela:
+- Najprej preglej navodila repozitorija in zahtevani obseg.
+- Pred trditvami zaznaj jezik, build sistem in testno površino.
+- Kadar so na voljo, zaženi varna preverjanja in navedi, česa ni bilo mogoče izvesti.
+- Pripravi ugotovitve z dokazi, potmi datotek, konkretnim vplivom in usmeritvijo za odpravo.
+- Izbirne popravke ali artefakte ohrani ločeno, razen če je uporabnik zahteval neposredno urejanje.

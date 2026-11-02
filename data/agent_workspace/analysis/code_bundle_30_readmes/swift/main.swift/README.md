@@ -1,9 +1,9 @@
 # main.swift
 
-- **Source file:** `/uploads/code_bundle_30/swift/main.swift`
-- **Language:** Swift
-- **Purpose:** Minimal Swift script/executable that prints a greeting.
-- **Key functions/classes:** No functions or classes; uses top-level Swift statements.
-- **Inputs:** No input is consumed.
-- **Outputs:** Prints `hello swift` to standard output.
-- **Notable implementation details:** Imports `Foundation`, though the shown code only requires standard printing functionality.
+- **Izvorna datoteka:** `/uploads/code_bundle_30/swift/main.swift`
+- **Jezik:** Swift
+- **Namen:** Predstavlja primer datoteke v jeziku oziroma formatu Swift.
+- **Glavne funkcije/razredi:** Preglejte izvorno datoteko za natančna imena funkcij, razredov ali ukazov.
+- **Vhodi:** Odvisni so od konkretne datoteke in načina zagona.
+- **Izhodi:** Datoteka proizvede vrednosti, izpis ali konfiguracijski učinek glede na svojo vlogo.
+- **Pomembne izvedbene podrobnosti:** README je ustvarjen kot kratek spremljevalni opis za hitro orientacijo po paketu kode.

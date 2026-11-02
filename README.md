@@ -1,40 +1,40 @@
 # deepagents-platform
 
-General-purpose DeepAgents platform scaffold with Docker Compose, a repo-visible `data/` persistence folder, PostgreSQL-backed checkpoints, a file-management API, and an independent Streamlit client.
+Splošna platforma DeepAgents z Docker Compose, vidno trajno mapo `data/`, PostgreSQL checkpointi, API-jem za upravljanje datotek in samostojnim Streamlit odjemalcem.
 
-## Services
+## Storitve
 
-- `agent-api` on `:8081`: DeepAgents workflow runtime.
-- `workspace-api` on `:8090`: safe upload/list/download/delete API for the shared workspace.
-- `client` on `:8501`: simple chat and workspace browser UI.
-- `postgres`: LangGraph checkpoint storage.
+- `agent-api` na `:8081`: izvajalno okolje DeepAgents workflowa.
+- `workspace-api` na `:8090`: varen API za nalaganje, seznam, prenos in brisanje datotek v skupnem workspaceu.
+- `client` na `:8501`: preprost klepetalni in datotečni uporabniški vmesnik.
+- `postgres`: shramba LangGraph checkpointov.
 
-## Quick start
+## Hitri zagon
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-Health checks:
+Preverjanje zdravja:
 
 ```bash
 curl http://localhost:8081/health
 curl http://localhost:8090/health
 ```
 
-Open `http://localhost:8501`.
+Odprite `http://localhost:8501`.
 
-## Provider switching
+## Menjava ponudnika
 
-Edit `.env`:
+Uredite `.env`:
 
 ```dotenv
 ACTIVE_PROVIDER=openai
 OPENAI_API_KEY=your-real-key
 ```
 
-Or:
+Ali:
 
 ```dotenv
 ACTIVE_PROVIDER=vllm
@@ -42,7 +42,7 @@ VLLM_BASE_URL=http://your-vllm-host:8000/v1
 VLLM_API_KEY=dummy
 ```
 
-Or:
+Ali:
 
 ```dotenv
 ACTIVE_PROVIDER=bifrost
@@ -51,11 +51,11 @@ BIFROST_MODEL=openai/gpt-4o-mini
 BIFROST_API_KEY=dummy-key
 ```
 
-OpenAI needs no certificate files or custom TLS settings.
+OpenAI ne potrebuje certifikatnih datotek ali posebnih TLS nastavitev.
 
-Bifrost also needs no extra certificate settings in the local/private setup you described. Point the OpenAI-compatible client at the gateway's `/openai` base URL and keep the upstream provider keys inside Bifrost.
+Bifrost v opisani lokalni oziroma zasebni postavitvi prav tako ne potrebuje dodatnih certifikatnih nastavitev. OpenAI-združljivega odjemalca usmerite na osnovni URL prehoda `/openai`, ključe nadrejenih ponudnikov pa hranite v Bifrostu.
 
-For private vLLM TLS or mTLS gateways, place your certificate files in the repo-local `certs/` directory and set the vLLM-specific options in `.env`:
+Za zasebne vLLM TLS ali mTLS prehode shranite certifikate v lokalno mapo `certs/` in v `.env` nastavite možnosti za vLLM:
 
 ```dotenv
 VLLM_TLS_VERIFY=true
@@ -64,17 +64,17 @@ VLLM_CLIENT_CERT_FILE=/certs/client.pem
 VLLM_CLIENT_KEY_FILE=/certs/client.key
 ```
 
-Set `VLLM_TLS_VERIFY=false` only when you intentionally want to disable certificate verification.
+`VLLM_TLS_VERIFY=false` nastavite samo, kadar namerno izklopite preverjanje certifikatov.
 
-Provider definitions live in [config/providers.yaml](/workspaces/agent_v6_deep/config/providers.yaml).
+Definicije ponudnikov so v [config/providers.yaml](config/providers.yaml).
 
-## Structured responses
+## Strukturirani odgovori
 
-In the chat UI, select **JSON Schema** and edit the schema for the response. The API accepts the schema on a per-message basis:
+V klepetalnem vmesniku izberite **JSON Schema** in uredite shemo odgovora. API sprejme shemo za posamezno sporočilo:
 
 ```json
 {
-  "message": "Summarize the report",
+  "message": "Povzemi poročilo",
   "response_schema": {
     "type": "object",
     "properties": {"summary": {"type": "string"}},
@@ -84,11 +84,11 @@ In the chat UI, select **JSON Schema** and edit the schema for the response. The
 }
 ```
 
-The agent sends this using strict JSON Schema output mode through the configured OpenAI-compatible provider. Strict mode requires every object property to be listed in `required` and `additionalProperties` to be `false`. Schema adherence depends on the routed model/provider supporting structured outputs; refusals and incomplete responses may not match the schema.
+Agent to pošlje konfiguriranemu OpenAI-združljivemu ponudniku v strogem načinu JSON Schema. Strogi način zahteva, da je vsaka lastnost objekta navedena v `required` in da je `additionalProperties` nastavljen na `false`. Upoštevanje sheme je odvisno od modela oziroma ponudnika; zavrnitve in nepopolni odgovori se lahko od sheme razlikujejo.
 
-## Vision and PDF redaction
+## Vid in anonimizacija PDF
 
-The agent can inspect JPEG, PNG, WebP, GIF, BMP, and TIFF images, plus PDF pages. Upload a file to the workspace with `POST /v1/files`, then include the returned workspace path in the chat API request:
+Agent lahko pregleda slike JPEG, PNG, WebP, GIF, BMP in TIFF ter strani PDF. Datoteko naložite v workspace z `POST /v1/files`, nato vrnjeno pot vključite v zahtevo klepetalnega API-ja:
 
 ```json
 {
@@ -97,43 +97,43 @@ The agent can inspect JPEG, PNG, WebP, GIF, BMP, and TIFF images, plus PDF pages
 }
 ```
 
-The GUI accepts multiple image/PDF attachments with a chat message. The agent can also inspect files already in the workspace when the user provides their paths. For scanned PDFs, it renders pages for the vision model. Page images and prompts are sent to the configured model endpoint, so use an endpoint approved for the documents being processed. To redact, ask the agent to redact personal data; it uses `redact_pdf_personal_data` and writes a new PDF under `/exports/`, leaving the source unchanged.
+GUI sprejme več slikovnih ali PDF priponk pri enem sporočilu. Agent lahko pregleda tudi datoteke, ki so že v workspaceu, če uporabnik navede njihove poti. Pri skeniranih PDF-jih strani izriše za vision model. Slike strani in pozivi se pošljejo konfiguriranemu modelnemu endpointu, zato uporabite endpoint, ki je odobren za obdelovane dokumente. Za anonimizacijo prosite agenta, naj zakrije osebne podatke; uporabi `redact_pdf_personal_data` in nov PDF zapiše pod `/exports/`, izvorna datoteka pa ostane nespremenjena.
 
-Redacted output is rasterized so the original text layer and hidden PDF content are not carried into the result. The agent checks the saved pages with OCR and a second vision pass. If either check is uncertain or finds possible personal data, it does not mark the output complete. Automated image recognition cannot guarantee perfect detection, so review the result before external release. The rasterized PDF does not have a searchable text layer.
+Anonimiziran izhod je rasteriziran, zato se prvotna besedilna plast in skrita vsebina PDF-ja ne preneseta v rezultat. Agent shranjene strani preveri z OCR in drugim vision pregledom. Če je preverjanje negotovo ali najde možne osebne podatke, izhoda ne označi kot dokončanega. Samodejno prepoznavanje slik ne more zagotoviti popolne zaznave, zato rezultat pred zunanjo objavo preglejte. Rasterizirani PDF nima iskalne besedilne plasti.
 
-## Persistence
+## Trajnost podatkov
 
-Persistent data lives in the repo-local `data/` folder, following the same broad shape as `agent_v5_1`:
+Trajni podatki živijo v lokalni mapi repozitorija `data/`:
 
 ```text
 data/
-  agent_workspace/   Agent-visible workspace files
-  session/           Thread metadata and transcripts
-  memory/            Reserved durable memory area
-  resources/         Shared resources area
-  runs/              Background process logs and run artifacts
+  agent_workspace/   Datoteke workspacea, vidne agentu
+  session/           Metapodatki niti in prepisi
+  memory/            Rezerviran trajni spomin
+  resources/         Skupni viri
+  runs/              Dnevniki procesov in artefakti zagonov
 ```
 
-The agent workspace is `data/agent_workspace/`. Rebuilding or restarting the services does not remove the contents of `data/`. PostgreSQL remains durable through its own Docker volume.
+Agentov workspace je `data/agent_workspace/`. Ponovna gradnja ali ponovni zagon storitev ne izbriše vsebine `data/`. PostgreSQL ostane trajen prek lastnega Docker volumna.
 
-## Layout
+## Struktura
 
 ```text
-config/           Provider configuration
-agent_api/        DeepAgents FastAPI service
-workspace_api/    Workspace FastAPI service
+config/           Konfiguracija ponudnikov
+agent_api/        Storitev FastAPI za DeepAgents
+workspace_api/    Storitev FastAPI za workspace
 client/           Streamlit UI
-data/             Visible persistent data root
-skills/           Starter DeepAgents skills
-workspace_seed/   Initial AGENTS.md memory seed
-tests/            Config loader tests
+data/             Vidni trajni podatkovni koren
+skills/           Začetne veščine DeepAgents
+workspace_seed/   Začetni AGENTS.md spomin
+tests/            Testi nalagalnika konfiguracije
 ```
 
-## Multi-user access
+## Večuporabniški dostop
 
-Local login, per-user workspaces, administrator account management, and mandatory `guid` query authentication are described in [MULTIUSER.md](MULTIUSER.md). The initial account is `admin` / `admin123`; change its password after the first login. Shell execution and shared MCP tools are disabled because this Compose deployment has no verified execution sandbox.
+Lokalna prijava, uporabniški workspacei, administracija računov in obvezna `guid` query avtentikacija so opisani v [MULTIUSER.md](MULTIUSER.md). Začetni račun je `admin` / `admin123`; po prvi prijavi spremenite geslo. Izvajanje shell ukazov in skupna MCP orodja so izključena, ker ta Compose postavitev nima preverjenega izvajalnega sandboxa.
 
-## Notes
+## Opombe
 
-- The application does not implement response streaming.
-- Use a single agent-api worker; invocation locks are local to that process.
+- Aplikacija ne podpira pretočnih odgovorov.
+- Uporabite enega `agent-api` workerja; zaklepi invokacij so lokalni procesu.

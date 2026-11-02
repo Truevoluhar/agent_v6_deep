@@ -1,15 +1,14 @@
 ---
 name: drawio
-description: Create and validate editable Draw.io architecture or workflow diagrams.
+description: Ustvari in preveri urejevalne Draw.io arhitekturne ali procesne diagrame.
 ---
 
 # Draw.io
 
-Use this skill when the user wants an editable architecture or flow diagram.
+Uporabi to veščino, ko uporabnik želi urejevalni arhitekturni ali procesni diagram.
 
-Workflow:
-- Create a `.drawio` XML file in `/workspace/diagrams/`.
-- Validate that the XML is well-formed before finishing.
-- Write a matching Markdown explanation beside the diagram describing nodes, flows, assumptions, and how to edit it.
-- Prefer simple labels and stable layout over overly dense diagrams.
-
+Potek dela:
+- Ustvari `.drawio` XML datoteko v `/workspace/diagrams/`.
+- Pred zaključkom preveri, da je XML dobro oblikovan.
+- Ob diagram zapiši ujemajočo Markdown razlago vozlišč, tokov, predpostavk in načina urejanja.
+- Raje uporabi preproste oznake in stabilno postavitev kot pretirano gost diagram.

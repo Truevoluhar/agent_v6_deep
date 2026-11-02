@@ -61,7 +61,7 @@ def _resolve_service_url(
         try:
             _probe_json(candidate, path, params=params)
             return candidate
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             failures.append(f"{candidate}: {exc}")
     summary = "; ".join(failures) or "no candidate URLs configured"
     raise RuntimeError(f"Unable to reach service for {path}. Tried: {summary}")
