@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: client
+          image: client:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8501
+          envFrom:
+            - configMapRef:
+                name: agent-platform-config
+            - secretRef:
+                name: agent-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: agent-platform-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+spec:
+  selector:
+    app: client
+  ports:
+    - name: http
+      port: 8501
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: client
+spec:
+  to:
+    kind: Service
+    name: client
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

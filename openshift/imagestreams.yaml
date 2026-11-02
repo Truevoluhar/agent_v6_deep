@@ -1,0 +1,23 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: agent-api
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: workspace-api
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: client
+spec:
+  lookupPolicy:
+    local: true

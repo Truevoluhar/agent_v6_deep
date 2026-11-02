@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-api
+  template:
+    metadata:
+      labels:
+        app: agent-api
+    spec:
+      containers:
+        - name: agent-api
+          image: agent-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: agent-platform-config
+            - secretRef:
+                name: agent-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: certificates
+              mountPath: /certs
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: agent-platform-data
+        - name: certificates
+          secret:
+            secretName: agent-platform-certificates
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-api
+spec:
+  selector:
+    app: agent-api
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: agent-api
+spec:
+  to:
+    kind: Service
+    name: agent-api
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

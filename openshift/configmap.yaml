@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-platform-config
+data:
+  AGENT_DATA_ROOT: /data
+  WORKSPACE_ROOT: /data/agent_workspace
+  SESSION_ROOT: /data/session
+  MEMORY_ROOT: /data/memory
+  RESOURCES_ROOT: /data/resources
+  RUNS_ROOT: /data/runs
+  USER_DATA_ROOT: /data/users
+  WORKSPACE_QUOTA_BYTES: "1073741824"
+
+  PROVIDERS_CONFIG_PATH: /app/config/providers.yaml
+  SKILLS_ROOT: /app/skills
+  ACTIVE_PROVIDER: openai
+  BIFROST_BASE_URL: http://bifrost:8080/openai
+  BIFROST_MODEL: openai/gpt-4o-mini
+  BIFROST_MCP_ENABLED: "false"
+  BIFROST_MCP_URL: http://bifrost:8080/mcp
+  BIFROST_MCP_TLS_VERIFY: "false"
+  VLLM_BASE_URL: http://vllm:8000/v1
+  VLLM_TLS_VERIFY: "true"
+  VLLM_CA_FILE: ""
+  VLLM_CA_PATH: ""
+  VLLM_CLIENT_CERT_FILE: ""
+  VLLM_CLIENT_KEY_FILE: ""
+  VLLM_CLIENT_KEY_PASSWORD: ""
+
+  AGENT_SYSTEM_PROMPT: "You are a reliable engineering agent. Prefer careful inspection, create durable artifacts in the workspace, explain assumptions clearly, and use the available skills when they fit the task."
+  AGENT_ENABLED_TOOLKITS: filesystem,shell,vision
+  AGENT_RECURSION_LIMIT: "120"
+  AGENT_SHELL_TIMEOUT_SECONDS: "120"
+  AGENT_API_PORT: "8081"
+  AGENT_API_URL: http://agent-api:8081
+  AGENT_API_FALLBACK_URLS: ""
+  WORKSPACE_API_URL: http://workspace-api:8090
+  WORKSPACE_API_FALLBACK_URLS: ""
+
+  AUTH_MODE: local
+  AUTH_SESSION_TTL_SECONDS: "43200"
+  AUTH_COOKIE_SECURE: "true"
+  AUTH_BOOTSTRAP_ADMIN_USERNAME: admin
+  CLIENT_DEFAULT_UPLOAD_DIR: uploads
+  APP_PUBLIC_URL: https://client-route-replace-me
+  AGENT_API_PUBLIC_URL: https://agent-api-route-replace-me
+
+  HOME: /tmp
+  XDG_CACHE_HOME: /tmp/.cache
+  MPLCONFIGDIR: /tmp/.cache/matplotlib

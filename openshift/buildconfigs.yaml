@@ -1,0 +1,50 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: agent-api
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: openshift/dockerfiles/agent-api.Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: agent-api:latest
+  runPolicy: Serial
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: workspace-api
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: openshift/dockerfiles/workspace-api.Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: workspace-api:latest
+  runPolicy: Serial
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: client
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: openshift/dockerfiles/client.Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: client:latest
+  runPolicy: Serial
