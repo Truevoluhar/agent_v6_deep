@@ -1,3 +1,5 @@
+name: zpizagent-platform
+
 services:
   postgres:
     image: postgres:17
@@ -38,7 +40,7 @@ services:
       - 168.63.129.16
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')\""]
       interval: 15s
@@ -68,6 +70,7 @@ services:
       RUNS_ROOT: /data/runs
       SKILLS_ROOT: /app/skills
       DATABASE_URL: postgresql://deepagents:deepagents@127.0.0.1:5432/deepagents
+      OMP_THREAD_LIMIT: "1"
     volumes:
       - ./data:/data
       - ./config:/app/config:ro
@@ -75,13 +78,11 @@ services:
       - ./certs:/certs:ro
       - ./workspace_seed:/seed:ro
     network_mode: host
-    dns:
-      - 168.63.129.16
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       workspace-api:
         condition: service_started
     healthcheck:
@@ -111,8 +112,6 @@ services:
       - ./data:/data
     ports:
       - "8501:8501"
-    dns:
-      - 168.63.129.16
     depends_on:
       agent-api:
         condition: service_started

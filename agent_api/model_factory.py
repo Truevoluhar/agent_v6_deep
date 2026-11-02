@@ -102,24 +102,55 @@ def build_json_schema_response_format(schema: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
 def build_chat_model(
     provider: ProviderConfig,
     response_format: str | None = None,
     response_schema: dict[str, Any] | None = None,
+    additional_body: dict[str, Any] | None = None,
 ):
     from langchain_openai import ChatOpenAI
 
-    if provider.type not in {"openai_compatible", "bifrost_gateway"}:
-        raise ValueError(f"Unsupported provider type: {provider.type}")
+    if provider.type not in {
+        "openai_compatible",
+        "bifrost_gateway",
+    }:
+        raise ValueError(
+            f"Unsupported provider type: {provider.type}"
+        )
+
+    if response_schema is not None:
+        validate_strict_response_schema(response_schema)
 
     configure_process_tls(provider)
     ssl_context = build_ssl_context(provider)
 
-    extra_body: dict[str, Any] | None = None
+    extra_body: dict[str, Any] = {}
+
     if response_schema is not None:
-        extra_body = {"response_format": build_json_schema_response_format(response_schema)}
+        extra_body["response_format"] = (
+            build_json_schema_response_format(
+                response_schema
+            )
+        )
     elif response_format == "json":
-        extra_body = {"response_format": {"type": "json_object"}}
+        extra_body["response_format"] = {
+            "type": "json_object"
+        }
+
+    # Dodatne nastavitve za posamezno opravilo,
+    # npr. chat_template_kwargs za vLLM.
+    if additional_body:
+        for key, value in additional_body.items():
+            if key == "response_format" and (
+                response_schema is not None
+                or response_format == "json"
+            ):
+                raise ValueError(
+                    "response_format must not be overridden "
+                    "through additional_body."
+                )
+            extra_body[key] = value
 
     chat_model_kwargs = {
         "model": provider.model,
@@ -132,19 +163,29 @@ def build_chat_model(
             verify=ssl_context,
             timeout=provider.timeout_seconds,
             event_hooks={
-                "request": [_sync_request_hook(provider.model)],
-                "response": [_sync_response_hook(provider.model)],
+                "request": [
+                    _sync_request_hook(provider.model)
+                ],
+                "response": [
+                    _sync_response_hook(provider.model)
+                ],
             },
         ),
         "http_async_client": httpx.AsyncClient(
             verify=ssl_context,
             timeout=provider.timeout_seconds,
             event_hooks={
-                "request": [_async_request_hook(provider.model)],
-                "response": [_async_response_hook(provider.model)],
+                "request": [
+                    _async_request_hook(provider.model)
+                ],
+                "response": [
+                    _async_response_hook(provider.model)
+                ],
             },
         ),
     }
-    if extra_body is not None:
+
+    if extra_body:
         chat_model_kwargs["extra_body"] = extra_body
+
     return ChatOpenAI(**chat_model_kwargs)

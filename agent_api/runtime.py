@@ -158,6 +158,7 @@ class AgentRuntime:
         attachments: list[str] | None = None,
     ) -> Any:
         from deepagents import create_deep_agent
+        from deepagents.middleware.summarization import SummarizationMiddleware
         from agent_api.quota_backend import QuotaFilesystemBackend
 
         from agent_api.model_factory import build_chat_model
@@ -176,17 +177,28 @@ class AgentRuntime:
                 "Inspect visual files with the vision tools when relevant:\n"
                 f"{attachment_lines}"
             )
+        model = build_chat_model(self.config.provider)
 
+        backend = QuotaFilesystemBackend(
+            root_dir=self.config.agent.workspace_root,
+            virtual_mode=True,
+        )
         agent_kwargs = {
-            "model": build_chat_model(self.config.provider),
+            "model": model,
             "tools": self.all_tools(),
             "system_prompt": self.build_system_prompt(),
-            "backend": QuotaFilesystemBackend(
-                root_dir=self.config.agent.workspace_root,
-                virtual_mode=True,
-            ),
+            "backend": backend,
             "memory": self.config.agent.memory_files,
             "skills": [self.config.agent.skills_root],
+            "middleware": [
+                SummarizationMiddleware(
+                    model=model,
+                    backend=backend,
+                    trigger=("tokens", 150_000),
+                    keep=("tokens", 20_000),
+                    trim_tokens_to_summarize=None,
+                ),
+            ],
         }
 
         if self.config.agent.use_checkpointer and self.config.agent.database_url:
@@ -267,7 +279,16 @@ class AgentRuntime:
             "Do not invent new information; only reformat what is already present below.\n\n"
             f"Agent answer:\n{raw_reply}"
         )
-        return await structuring_model.ainvoke([{"role": "user", "content": prompt}])
+        invoke_kwargs = {
+            "max_tokens": 2048,
+        }
+        
+        invoke_kwargs["extra_body"] = {
+            "chat_template_kwargs": {
+                "enable_thinking": False,
+            },
+        }
+        return await structuring_model.ainvoke([{"role": "user", "content": prompt}], **invoke_kwargs)
 
     def build_system_prompt(self, response_format: str | None = None) -> str:
         toolkit_lines = []

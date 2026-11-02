@@ -15,6 +15,10 @@ from agent_api.visuals import (
     read_workspace_file,
 )
 
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
 
 def _render_pdf_page(document: Any, page_number: int) -> bytes:
     page = document[page_number]
@@ -156,24 +160,31 @@ def build_vision_tools(context: ToolContext) -> list[Any]:
             result = await redact_pdf(workspace, provider, path, output_path)
             return json.dumps(result, ensure_ascii=False)
         except (RedactionError, VisualInputError, ValueError) as exc:
-            return json.dumps(
-                {
-                    "status": "not_verified",
-                    "error": str(exc),
-                    "artifact_created": False,
-                    "final_pdf_created": False,
-                },
-                ensure_ascii=False,
+            LOGGER.warning(
+                "PDF redaction failed: error_type=%s reason=%s",
+                type(exc).__name__,
+                str(exc),
             )
+            return json.dumps({
+                "status": "not_verified",
+                "error": str(exc),
+                "artifact_created": False,
+                "final_pdf_created": False,
+            }, ensure_ascii=False)
         except Exception:  # noqa: BLE001
-            return json.dumps(
-                {
-                    "status": "not_verified",
-                    "error": "Redaction failed. No final PDF was created; check agent logs.",
-                    "artifact_created": False,
-                    "final_pdf_created": False,
-                }
+            LOGGER.error(
+                "PDF redaction failed unexpectedly: error_type=%s",
+                type(exc).__name__,
+                exc_info=True,
             )
+
+            return json.dumps({
+                "status": "not_verified",
+                "error": "Redaction failed unexpectedly. Check agent logs.",
+                "error_type": type(exc).__name__,
+                "artifact_created": False,
+                "final_pdf_created": False,
+            })
 
     return [inspect_image, inspect_pdf, redact_pdf_personal_data]
 

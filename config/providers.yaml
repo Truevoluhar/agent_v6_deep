@@ -1,4 +1,4 @@
-active_provider: ${ACTIVE_PROVIDER:-openai}
+active_provider: ${ACTIVE_PROVIDER:-bifrost}
 
 providers:
   openai:
@@ -7,7 +7,7 @@ providers:
     base_url: https://api.openai.com/v1
     api_key: ${OPENAI_API_KEY}
     temperature: 0
-    timeout_seconds: 180
+    timeout_seconds: 500
     max_retries: 3
 
   bifrost:
@@ -16,8 +16,14 @@ providers:
     base_url: ${BIFROST_BASE_URL:-http://host.docker.internal:8080/openai}
     api_key: ${BIFROST_API_KEY:-dummy-key}
     temperature: 0
-    timeout_seconds: 180
+    timeout_seconds: 500
     max_retries: 2
+    tls_verify: ${BIFROST_TLS_VERIFY:-true}
+    tls_ca_file: ${BIFROST_CA_FILE:-}
+    tls_ca_path: ${BIFROST_CA_PATH:-}
+    tls_client_cert_file: ${BIFROST_CLIENT_CERT_FILE:-}
+    tls_client_key_file: ${BIFROST_CLIENT_KEY_FILE:-}
+    tls_client_key_password: ${BIFROST_CLIENT_KEY_PASSWORD:-}
 
   vllm:
     type: openai_compatible
@@ -25,7 +31,7 @@ providers:
     base_url: ${VLLM_BASE_URL:-http://host.docker.internal:8000/v1}
     api_key: ${VLLM_API_KEY:-dummy}
     temperature: 0
-    timeout_seconds: 180
+    timeout_seconds: 500
     max_retries: 2
     tls_verify: ${VLLM_TLS_VERIFY:-true}
     tls_ca_file: ${VLLM_CA_FILE:-}

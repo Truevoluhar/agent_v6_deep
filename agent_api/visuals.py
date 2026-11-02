@@ -72,6 +72,9 @@ def message_text(message: Any) -> str:
     return str(content)
 
 
+
+
+
 async def ask_vision(
     provider: Any,
     image_content: bytes,
@@ -79,41 +82,169 @@ async def ask_vision(
     *,
     mime_type: str = "image/png",
     operation: str = "visual_inspection",
+    response_schema: dict[str, Any] | None = None,
+    max_tokens: int = 8096,
+    enable_thinking: bool | None = None,
 ) -> str:
+    import json
+
     from agent_api.model_factory import build_chat_model
 
-    model = build_chat_model(provider)
+    # Preverimo dovoljeno število izhodnih tokenov.
+    if max_tokens <= 0:
+        raise ValueError("max_tokens must be positive")
+
+    is_bifrost = provider.type == "bifrost_gateway"
+
+    # Za Bifrost/vLLM privzeto izklopimo thinking.
+    # Pri drugih ponudnikih pustimo privzeto obnašanje.
+    if enable_thinking is None and is_bifrost:
+        enable_thinking = False
+
+    # Dodatne nastavitve za vLLM.
+    additional_body = {}
+
+    if is_bifrost and enable_thinking is not None:
+        additional_body["chat_template_kwargs"] = {
+            "enable_thinking": enable_thinking
+        }
+
+    # build_chat_model zdaj sestavi response_format
+    # in chat_template_kwargs v en sam extra_body.
+    model = build_chat_model(
+        provider,
+        response_schema=response_schema,
+        additional_body=additional_body or None,
+    )
+
     started = time.perf_counter()
+
     LOGGER.info(
-        "Vision operation started: operation=%s model=%s image_bytes=%s",
+        "Vision operation started: "
+        "operation=%s model=%s image_bytes=%s "
+        "structured_output=%s max_tokens=%s "
+        "thinking=%s",
         operation,
         provider.model,
         len(image_content),
+        response_schema is not None,
+        max_tokens,
+        enable_thinking,
     )
+
     try:
         result = await model.ainvoke(
             [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_data_url(image_content, mime_type)}},
+                        {
+                            "type": "text",
+                            "text": prompt,
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_data_url(
+                                    image_content,
+                                    mime_type,
+                                ),
+                            },
+                        },
                     ],
                 }
-            ]
+            ],
+            max_tokens=max_tokens,
         )
-    except Exception as exc:  # noqa: BLE001
+
+        metadata = result.response_metadata or {}
+        finish_reason = metadata.get("finish_reason")
+
+        content = message_text(result)
+        usage = result.usage_metadata or {}
+
+        tool_calls = (
+            getattr(result, "tool_calls", None) or []
+        )
+
+        LOGGER.info(
+            "Vision response: "
+            "operation=%s finish_reason=%s "
+            "content_length=%s output_tokens=%s "
+            "tool_calls=%s",
+            operation,
+            finish_reason,
+            len(content),
+            usage.get("output_tokens"),
+            len(tool_calls),
+        )
+
+        # Odrezan odgovor ni uporaben.
+        if finish_reason in {"length", "max_tokens"}:
+            raise VisualInputError(
+                f"Vision response truncated: {operation}"
+            )
+
+        # Vision klic ne sme izvajati orodij.
+        if tool_calls or finish_reason in {
+            "tool_calls",
+            "function_call",
+        }:
+            raise VisualInputError(
+                f"Unexpected tool call in vision: {operation}"
+            )
+
+        if finish_reason not in {None, "stop"}:
+            raise VisualInputError(
+                f"Unexpected vision finish_reason: "
+                f"{finish_reason}"
+            )
+
+        if not content.strip():
+            raise VisualInputError(
+                f"Empty vision response: {operation}"
+            )
+
+        # JSON preverjamo samo, kadar je podana shema.
+        if response_schema is not None:
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError as exc:
+                raise VisualInputError(
+                    f"Invalid structured JSON: {operation}"
+                ) from exc
+
+            if not isinstance(parsed, dict):
+                raise VisualInputError(
+                    f"Structured vision response must be "
+                    f"a JSON object: {operation}"
+                )
+
+            # Združljivost z redaction.py,
+            # ki pričakuje JSON kot string.
+            content = json.dumps(
+                parsed,
+                ensure_ascii=False,
+            )
+
+        LOGGER.info(
+            "Vision operation completed: "
+            "operation=%s elapsed=%.2fs",
+            operation,
+            time.perf_counter() - started,
+        )
+
+        return content
+
+    except Exception as exc:
         LOGGER.error(
-            "Vision operation failed: operation=%s elapsed=%.2fs error_type=%s",
+            "Vision operation failed: "
+            "operation=%s elapsed=%.2fs "
+            "error_type=%s status_code=%s",
             operation,
             time.perf_counter() - started,
             type(exc).__name__,
+            getattr(exc, "status_code", None),
+            exc_info=True,
         )
         raise
-    LOGGER.info(
-        "Vision operation completed: operation=%s elapsed=%.2fs",
-        operation,
-        time.perf_counter() - started,
-    )
-    return message_text(result)
-

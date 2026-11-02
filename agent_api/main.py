@@ -80,7 +80,7 @@ class ProcessRequest(BaseModel):
     cwd: str = "/"
 
 
-app = FastAPI(title="deepagents-platform agent-api", version="0.1.0")
+app = FastAPI(title="zpizagent-platform agent-api", version="0.1.0")
 
 @app.middleware("http")
 async def no_store_private(request, call_next):

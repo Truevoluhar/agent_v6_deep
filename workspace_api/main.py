@@ -21,7 +21,7 @@ def workspace_for(user: CurrentUser) -> WorkspaceManager:
     workspace.ensure_layout()
     return workspace
 
-app = FastAPI(title="deepagents-platform workspace-api", version="0.1.0")
+app = FastAPI(title="zpizagent-platform workspace-api", version="0.1.0")
 
 
 
