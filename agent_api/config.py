@@ -43,6 +43,7 @@ class AgentConfig:
     enabled_toolkits: list[str]
     use_checkpointer: bool
     recursion_limit: int
+    context_window_tokens: int
     shell_timeout_seconds: int
     database_url: str | None
     bifrost_mcp_enabled: bool = False
@@ -161,6 +162,10 @@ def load_config(
         env_values.get("BIFROST_MCP_TLS_VERIFY", "false").strip().lower()
         in {"1", "true", "yes", "on"}
     )
+    context_window_tokens = int(env_values.get("AGENT_CONTEXT_WINDOW_TOKENS", "128000"))
+    if context_window_tokens < 1:
+        raise ValueError("AGENT_CONTEXT_WINDOW_TOKENS must be a positive integer.")
+
     agent = AgentConfig(
         data_root=data_root,
         workspace_root=workspace_root,
@@ -181,6 +186,7 @@ def load_config(
         enabled_toolkits=enabled_toolkits,
         use_checkpointer=use_checkpointer,
         recursion_limit=int(env_values.get("AGENT_RECURSION_LIMIT", "120")),
+        context_window_tokens=context_window_tokens,
         shell_timeout_seconds=int(env_values.get("AGENT_SHELL_TIMEOUT_SECONDS", "120")),
         database_url=database_url,
         bifrost_mcp_enabled=bifrost_mcp_enabled,

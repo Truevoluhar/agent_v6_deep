@@ -158,7 +158,9 @@ class AgentRuntime:
         attachments: list[str] | None = None,
     ) -> Any:
         from deepagents import create_deep_agent
+        from deepagents.middleware.filesystem import FilesystemMiddleware
         from deepagents.middleware.summarization import SummarizationMiddleware
+        from agent_api.context_budget import ContextBudgetMiddleware
         from agent_api.quota_backend import QuotaFilesystemBackend
 
         from agent_api.model_factory import build_chat_model
@@ -183,6 +185,17 @@ class AgentRuntime:
             root_dir=self.config.agent.workspace_root,
             virtual_mode=True,
         )
+        context_window_tokens = getattr(
+            self.config.agent,
+            "context_window_tokens",
+            128_000,
+        )
+        # Leave room for generated output, estimation error, and prompt sections
+        # added by DeepAgents middleware after this guard in the call chain.
+        input_budget_tokens = max(1, context_window_tokens * 7 // 10)
+        summarization_trigger_tokens = max(1, context_window_tokens * 6 // 10)
+        summarization_keep_tokens = max(1, min(20_000, input_budget_tokens // 5))
+        summary_source_tokens = max(1_000, min(20_000, summarization_trigger_tokens // 2))
         agent_kwargs = {
             "model": model,
             "tools": self.all_tools(),
@@ -191,13 +204,22 @@ class AgentRuntime:
             "memory": self.config.agent.memory_files,
             "skills": [self.config.agent.skills_root],
             "middleware": [
+                # Replace the default filesystem middleware with the same
+                # workspace backend and an explicit cap for every tool result.
+                FilesystemMiddleware(
+                    backend=backend,
+                    tool_token_limit_before_evict=10_000,
+                ),
                 SummarizationMiddleware(
                     model=model,
                     backend=backend,
-                    trigger=("tokens", 150_000),
-                    keep=("tokens", 20_000),
-                    trim_tokens_to_summarize=None,
+                    trigger=("tokens", summarization_trigger_tokens),
+                    keep=("tokens", summarization_keep_tokens),
+                    trim_tokens_to_summarize=summary_source_tokens,
                 ),
+                # create_deep_agent orders caller middleware after its base
+                # stack, so this sees the effective request after compaction.
+                ContextBudgetMiddleware(max_input_tokens=input_budget_tokens),
             ],
         }
 
@@ -301,7 +323,9 @@ class AgentRuntime:
             f"{self.config.agent.system_prompt}\n\n"
             "Custom toolkits available in addition to the DeepAgents built-ins:\n"
             f"{toolkit_text}\n\n"
-            "Shell command execution is disabled. Use filesystem tools for workspace files."
+            "Shell command execution is disabled. Use filesystem tools for workspace files. "
+            "Large tool results may be saved to a workspace file; use the returned path and read_file "
+            "to retrieve exact details before relying on them, especially schemas and column definitions."
             " Use inspect_image or inspect_pdf to read visual files. For requests to anonymize or redact scanned documents, "
             "use redact_pdf_personal_data and report its verification status accurately. Do not repeat detected personal values "
             "in the final reply; report only the artifact path, counts, and verification result. If the tool returns an output_path "

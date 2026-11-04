@@ -31,6 +31,7 @@ data:
   AGENT_SYSTEM_PROMPT: "You are a reliable engineering agent. Prefer careful inspection, create durable artifacts in the workspace, explain assumptions clearly, and use the available skills when they fit the task."
   AGENT_ENABLED_TOOLKITS: filesystem,shell,vision
   AGENT_RECURSION_LIMIT: "120"
+  AGENT_CONTEXT_WINDOW_TOKENS: "128000"
   AGENT_SHELL_TIMEOUT_SECONDS: "120"
   AGENT_API_PORT: "8081"
   AGENT_API_URL: http://agent-api:8081

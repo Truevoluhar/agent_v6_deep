@@ -68,6 +68,12 @@ VLLM_CLIENT_KEY_FILE=/certs/client.key
 
 Definicije ponudnikov so v [config/providers.yaml](config/providers.yaml).
 
+## Zaščita konteksta
+
+Agent velike rezultate orodij (privzeto nad 10.000 ocenjenih tokenov) shrani v workspace in modelu vrne predogled s potjo do celotnega rezultata. Pred vsakim klicem modela DeepAgents najprej povzame starejšo zgodovino; dodatni proračunski pregled nato preveri tudi sistemski poziv in definicije orodij. Privzeta meja konteksta je 128.000 tokenov, povzetek se sproži pri 60 %, modelu pa ostane največ 70 % okna za vhod, s preostankom za pozne dodatke poziva, izhod in ocenjevalno rezervo. Nastavite `AGENT_CONTEXT_WINDOW_TOKENS` glede na dejansko vhodno okno izbranega modela oziroma ponudnika.
+
+Polni rezultati ostanejo dostopni prek vrnjene poti, zato lahko agent z `read_file` pridobi natančne definicije tabel ali druge podatke, ki jih predogled ne vsebuje.
+
 ## Strukturirani odgovori
 
 V klepetalnem vmesniku izberite **JSON Schema** in uredite shemo odgovora. API sprejme shemo za posamezno sporočilo:
