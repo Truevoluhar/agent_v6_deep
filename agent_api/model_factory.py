@@ -138,6 +138,14 @@ def build_chat_model(
             "type": "json_object"
         }
 
+    # Izklopi thinking za Qwen3.6 prek Bifrost -> vLLM
+    if provider.type == "bifrost_gateway":
+        if extra_body is None:
+            extra_body = {}
+
+        extra_body["chat_template_kwargs"] = {
+            "enable_thinking": False
+        }
 
 
     if additional_body:
