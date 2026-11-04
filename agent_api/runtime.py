@@ -159,6 +159,7 @@ class AgentRuntime:
     ) -> Any:
         from deepagents import create_deep_agent
         from deepagents.middleware.filesystem import FilesystemMiddleware
+        from deepagents.middleware.memory import MemoryMiddleware
         from deepagents.middleware.summarization import SummarizationMiddleware
         from agent_api.context_budget import ContextBudgetMiddleware
         from agent_api.quota_backend import QuotaFilesystemBackend
@@ -190,10 +191,11 @@ class AgentRuntime:
             "context_window_tokens",
             128_000,
         )
-        # Leave room for generated output, estimation error, and prompt sections
-        # added by DeepAgents middleware after this guard in the call chain.
+        # Leave room for generated output, estimation error, and provider overhead.
         input_budget_tokens = max(1, context_window_tokens * 7 // 10)
-        summarization_trigger_tokens = max(1, context_window_tokens * 6 // 10)
+        # Summarization's native estimator is approximate. Trigger early enough
+        # that the stricter final estimate can still keep the call within budget.
+        summarization_trigger_tokens = max(1, context_window_tokens * 4 // 10)
         summarization_keep_tokens = max(1, min(20_000, input_budget_tokens // 5))
         summary_source_tokens = max(1_000, min(20_000, summarization_trigger_tokens // 2))
         agent_kwargs = {
@@ -201,14 +203,13 @@ class AgentRuntime:
             "tools": self.all_tools(),
             "system_prompt": self.build_system_prompt(),
             "backend": backend,
-            "memory": self.config.agent.memory_files,
             "skills": [self.config.agent.skills_root],
             "middleware": [
                 # Replace the default filesystem middleware with the same
                 # workspace backend and an explicit cap for every tool result.
                 FilesystemMiddleware(
                     backend=backend,
-                    tool_token_limit_before_evict=10_000,
+                    tool_token_limit_before_evict=6_000,
                 ),
                 SummarizationMiddleware(
                     model=model,
@@ -217,9 +218,17 @@ class AgentRuntime:
                     keep=("tokens", summarization_keep_tokens),
                     trim_tokens_to_summarize=summary_source_tokens,
                 ),
-                # create_deep_agent orders caller middleware after its base
-                # stack, so this sees the effective request after compaction.
-                ContextBudgetMiddleware(max_input_tokens=input_budget_tokens),
+                # Keep memory injection before the final check. create_deep_agent
+                # otherwise adds MemoryMiddleware in its tail, after user hooks.
+                MemoryMiddleware(
+                    backend=backend,
+                    sources=self.config.agent.memory_files,
+                ),
+                ContextBudgetMiddleware(
+                    max_input_tokens=input_budget_tokens,
+                    backend=backend,
+                    max_tool_result_chars=24_000,
+                ),
             ],
         }
 
