@@ -76,6 +76,8 @@ def sandboxed_shell_argv(
             "--unshare-pid",
             "--unshare-ipc",
             "--unshare-uts",
+            "--cap-drop",
+            "ALL",
             "--tmpfs",
             "/",
         ]

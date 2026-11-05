@@ -202,7 +202,7 @@ Dobra varnostna ugotovitev vsebuje lokacijo, prizadeto kodo ali verzijo, dokaz, 
 
 ## 16. Varnostni model
 
-Shell ukazi tečejo v ločenem bubblewrap mount in PID namespaceu na Linuxu oziroma v macOS sandbox profilu pri lokalnem razvoju. V namespace je priklopljen samo uporabniški `/shell_executions` za zapisovanje; aplikacijski podatki in druge mape niso vidni ukazu. Sistemske izvajalne datoteke so na voljo samo za branje. Če operacijski sistem ali runtime ne omogoča peskovnika, se shell ukaz zavrne.
+Shell ukazi tečejo v ločenem bubblewrap mount in PID namespaceu na Linuxu oziroma v macOS sandbox profilu pri lokalnem razvoju. V namespace je priklopljen samo uporabniški `/shell_executions` za zapisovanje; aplikacijski podatki in druge mape niso vidni ukazu. Sistemske izvajalne datoteke so na voljo samo za branje. Če operacijski sistem ali runtime ne omogoča peskovnika, se shell ukaz zavrne. Docker Compose doda procesu `agent-api` capabilities `SETUID` in `SETGID` za preslikavo UID/GID. Bubblewrap jih odstrani, preden zažene shell ukaz.
 
 Compose postavitev vključuje ne-root uporabnike, odstranjene Linux capabilities, `no-new-privileges`, eksplicitno priklopljen trajni workspace, read-only konfiguracijo in veščine ter izolirano bazo na notranjem omrežju.
 
