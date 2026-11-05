@@ -68,6 +68,19 @@ VLLM_CLIENT_KEY_FILE=/certs/client.key
 
 Definicije ponudnikov so v [config/providers.yaml](config/providers.yaml).
 
+### Razmišljanje in izhodni žetoni modela
+
+Vsi klici uporabljajo skupni izklop razmišljanja in zgornjo mejo izhodnih žetonov. Privzeto je razmišljanje izklopljeno, največje število izhodnih žetonov na klic pa je 150.000. Nastavitvi veljata tudi za Bifrost, ki posreduje zahteve v vLLM; neposredni vLLM in Bifrost prejmeta `chat_template_kwargs.enable_thinking=false`, OpenAI pa `reasoning_effort=none`.
+
+V `.env` ju lahko prilagodite:
+
+```dotenv
+LLM_THINKING_ENABLED=false
+LLM_MAX_OUTPUT_TOKENS=150000
+```
+
+`LLM_MAX_OUTPUT_TOKENS` mora biti pozitivno celo število in ne sme presegati omejitve izbranega modela. Omejitev velja tudi za izrecne manjše omejitve, ki jih uporabljata pregled slik in oblikovanje strukturiranih odgovorov.
+
 ## Zaščita konteksta
 
 Agent velike rezultate orodij shrani v workspace in modelu vrne predogled s potjo do celotnega rezultata; zunanji rezultati orodij se prestrežejo pri 24.000 znakih, DeepAgents pa ima še svoj prag pri 6.000 ocenjenih tokenih. Pred vsakim klicem modela DeepAgents najprej povzame starejšo zgodovino; dodatni proračunski pregled preveri tudi sistemski poziv, zgodovino in definicije orodij z varnostno rezervo za gostejše tokeniziranje. Privzeta meja konteksta je 128.000 tokenov, povzetek se sproži pri 40 %, modelu pa ostane največ 70 % okna za vhod. Nastavite `AGENT_CONTEXT_WINDOW_TOKENS` glede na dejansko vhodno okno izbranega modela oziroma ponudnika.

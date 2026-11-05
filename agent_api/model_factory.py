@@ -102,6 +102,18 @@ def build_json_schema_response_format(schema: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def max_output_tokens(provider: Any, requested: int | None = None) -> int:
+    """Return a positive per-request output limit no higher than the configured cap."""
+    configured = int(getattr(provider, "max_output_tokens", 150_000))
+    if configured < 1:
+        raise ValueError("LLM_MAX_OUTPUT_TOKENS must be a positive integer.")
+    if requested is None:
+        return configured
+    if requested < 1:
+        raise ValueError("max_tokens must be positive")
+    return min(int(requested), configured)
+
+
 
 def build_chat_model(
     provider: ProviderConfig,
@@ -138,16 +150,6 @@ def build_chat_model(
             "type": "json_object"
         }
 
-    # Izklopi thinking za Qwen3.6 prek Bifrost -> vLLM
-    if provider.type == "bifrost_gateway":
-        if extra_body is None:
-            extra_body = {}
-
-        extra_body["chat_template_kwargs"] = {
-            "enable_thinking": False
-        }
-
-
     if additional_body:
         for key, value in additional_body.items():
             if key == "response_format" and (
@@ -160,11 +162,37 @@ def build_chat_model(
                 )
             extra_body[key] = value
 
+    thinking_enabled = bool(getattr(provider, "thinking_enabled", False))
+    thinking_control = getattr(
+        provider,
+        "thinking_control",
+        "chat_template_kwargs"
+        if getattr(provider, "type", None) == "bifrost_gateway"
+        or getattr(provider, "name", None) == "vllm"
+        else "reasoning_effort",
+    )
+    model_kwargs: dict[str, Any] = {}
+    if thinking_control == "chat_template_kwargs":
+        template_kwargs = extra_body.get("chat_template_kwargs", {})
+        if not isinstance(template_kwargs, dict):
+            raise ValueError("chat_template_kwargs must be an object.")
+        # This configured policy takes precedence over call-specific extra_body values.
+        extra_body["chat_template_kwargs"] = {
+            **template_kwargs,
+            "enable_thinking": thinking_enabled,
+        }
+    elif thinking_control == "reasoning_effort":
+        # OpenAI reasoning models accept "none" to suppress reasoning tokens.
+        model_kwargs["reasoning_effort"] = "medium" if thinking_enabled else "none"
+    elif thinking_control != "reasoning_effort":
+        raise ValueError(f"Unsupported provider thinking control: {thinking_control}")
+
     chat_model_kwargs = {
         "model": provider.model,
         "api_key": provider.api_key,
         "base_url": provider.base_url,
         "temperature": provider.temperature,
+        "max_tokens": max_output_tokens(provider),
         "timeout": provider.timeout_seconds,
         "max_retries": provider.max_retries,
         "http_client": httpx.Client(
@@ -192,6 +220,8 @@ def build_chat_model(
             },
         ),
     }
+
+    chat_model_kwargs.update(model_kwargs)
 
     if extra_body:
         chat_model_kwargs["extra_body"] = extra_body

@@ -298,7 +298,7 @@ class AgentRuntime:
         response_format: str | None,
         response_schema: dict[str, Any] | None,
     ) -> Any:
-        from agent_api.model_factory import build_chat_model
+        from agent_api.model_factory import build_chat_model, max_output_tokens
 
         structuring_model = build_chat_model(
             self.config.provider,
@@ -311,13 +311,7 @@ class AgentRuntime:
             f"Agent answer:\n{raw_reply}"
         )
         invoke_kwargs = {
-            "max_tokens": 2048,
-        }
-
-        invoke_kwargs["extra_body"] = {
-            "chat_template_kwargs": {
-                "enable_thinking": False,
-            },
+            "max_tokens": max_output_tokens(self.config.provider, 2048),
         }
         return await structuring_model.ainvoke([{"role": "user", "content": prompt}], **invoke_kwargs)
 

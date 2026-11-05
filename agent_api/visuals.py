@@ -84,38 +84,20 @@ async def ask_vision(
     operation: str = "visual_inspection",
     response_schema: dict[str, Any] | None = None,
     max_tokens: int = 8096,
-    enable_thinking: bool | None = None,
 ) -> str:
     import json
 
-    from agent_api.model_factory import build_chat_model
+    from agent_api.model_factory import build_chat_model, max_output_tokens
 
 
     if max_tokens <= 0:
         raise ValueError("max_tokens must be positive")
 
-    is_bifrost = provider.type == "bifrost_gateway"
-
-
-
-    if enable_thinking is None and is_bifrost:
-        enable_thinking = False
-
-
-    additional_body = {}
-
-    if is_bifrost and enable_thinking is not None:
-        additional_body["chat_template_kwargs"] = {
-            "enable_thinking": enable_thinking
-        }
-
-
-
     model = build_chat_model(
         provider,
         response_schema=response_schema,
-        additional_body=additional_body or None,
     )
+    request_max_tokens = max_output_tokens(provider, max_tokens)
 
     started = time.perf_counter()
 
@@ -128,8 +110,8 @@ async def ask_vision(
         provider.model,
         len(image_content),
         response_schema is not None,
-        max_tokens,
-        enable_thinking,
+        request_max_tokens,
+        getattr(provider, "thinking_enabled", False),
     )
 
     try:
@@ -154,7 +136,7 @@ async def ask_vision(
                     ],
                 }
             ],
-            max_tokens=max_tokens,
+            max_tokens=request_max_tokens,
         )
 
         metadata = result.response_metadata or {}

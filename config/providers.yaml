@@ -1,5 +1,9 @@
 active_provider: ${ACTIVE_PROVIDER:-bifrost}
 
+llm:
+  thinking_enabled: ${LLM_THINKING_ENABLED:-false}
+  max_output_tokens: ${LLM_MAX_OUTPUT_TOKENS:-150000}
+
 providers:
   openai:
     type: openai_compatible
@@ -9,6 +13,7 @@ providers:
     temperature: 0
     timeout_seconds: 500
     max_retries: 3
+    thinking_control: reasoning_effort
 
   bifrost:
     type: bifrost_gateway
@@ -18,6 +23,7 @@ providers:
     temperature: 0
     timeout_seconds: 500
     max_retries: 2
+    thinking_control: chat_template_kwargs
     tls_verify: ${BIFROST_TLS_VERIFY:-true}
     tls_ca_file: ${BIFROST_CA_FILE:-}
     tls_ca_path: ${BIFROST_CA_PATH:-}
@@ -33,6 +39,7 @@ providers:
     temperature: 0
     timeout_seconds: 500
     max_retries: 2
+    thinking_control: chat_template_kwargs
     tls_verify: ${VLLM_TLS_VERIFY:-true}
     tls_ca_file: ${VLLM_CA_FILE:-}
     tls_ca_path: ${VLLM_CA_PATH:-}

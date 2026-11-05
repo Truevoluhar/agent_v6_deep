@@ -27,6 +27,9 @@ class ProviderConfig:
     tls_client_cert_file: str | None
     tls_client_key_file: str | None
     tls_client_key_password: str | None
+    thinking_enabled: bool = False
+    thinking_control: str = "chat_template_kwargs"
+    max_output_tokens: int = 150_000
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,7 @@ class AppConfig:
 
 
 def expand_env_placeholders(text: str, env: dict[str, str] | None = None) -> str:
-    values = env or os.environ
+    values = os.environ if env is None else env
 
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
@@ -86,7 +89,7 @@ def load_config(
     config_path: str | Path | None = None,
     env: dict[str, str] | None = None,
 ) -> AppConfig:
-    env_values = env or os.environ
+    env_values = os.environ if env is None else env
     resolved_path = Path(config_path or env_values.get("PROVIDERS_CONFIG_PATH", "/app/config/providers.yaml"))
     data = load_provider_file(resolved_path, env=env_values)
 
@@ -115,6 +118,46 @@ def load_config(
         normalized = str(value).strip()
         return normalized or None
 
+    def parse_bool(value: Any, name: str) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off", ""}:
+                return False
+        raise ValueError(f"{name} must be a boolean value.")
+
+    raw_llm = data.get("llm", {})
+    if not isinstance(raw_llm, dict):
+        raise ValueError("The llm configuration must be a mapping.")
+    thinking_enabled = parse_bool(
+        env_values.get(
+            "LLM_THINKING_ENABLED", raw_llm.get("thinking_enabled", False)
+        ),
+        "LLM_THINKING_ENABLED",
+    )
+    max_output_tokens = int(
+        env_values.get(
+            "LLM_MAX_OUTPUT_TOKENS", raw_llm.get("max_output_tokens", 150_000)
+        )
+    )
+    if max_output_tokens < 1:
+        raise ValueError("LLM_MAX_OUTPUT_TOKENS must be a positive integer.")
+    thinking_control = str(
+        raw_provider.get(
+            "thinking_control",
+            "chat_template_kwargs"
+            if raw_provider.get("type") == "bifrost_gateway" or active_provider == "vllm"
+            else "reasoning_effort",
+        )
+    )
+    if thinking_control not in {"chat_template_kwargs", "reasoning_effort"}:
+        raise ValueError(
+            "Provider thinking_control must be 'chat_template_kwargs' or 'reasoning_effort'."
+        )
+
     provider = ProviderConfig(
         name=active_provider,
         type=str(raw_provider["type"]),
@@ -130,6 +173,9 @@ def load_config(
         tls_client_cert_file=optional_string(raw_provider.get("tls_client_cert_file")),
         tls_client_key_file=optional_string(raw_provider.get("tls_client_key_file")),
         tls_client_key_password=optional_string(raw_provider.get("tls_client_key_password")),
+        thinking_enabled=thinking_enabled,
+        thinking_control=thinking_control,
+        max_output_tokens=max_output_tokens,
     )
 
     data_root = Path(env_values.get("AGENT_DATA_ROOT", "/data"))

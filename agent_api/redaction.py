@@ -1028,7 +1028,6 @@ async def redact_pdf(
                 operation=f"redaction_detection_page_{page_number}",
                 response_schema=DETECTION_SCHEMA,
                 max_tokens=14096,
-                enable_thinking=False
             )
             LOGGER.info(
                 "Redaction detection returned: page=%s response_chars=%s",
