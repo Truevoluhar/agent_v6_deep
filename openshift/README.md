@@ -66,6 +66,7 @@ V brskalniku odprite route `client`.
 
 - `ACTIVE_PROVIDER` je v `configmap.yaml` privzeto `openai`.
 - Za Bifrost ali vLLM nastavite `ACTIVE_PROVIDER` ter pripadajoči osnovni URL in API ključ v config mapu oziroma secretu.
+- Shell izvajanje uporablja bubblewrap in zahteva, da varnostna politika gruče dovoli neprivilegirane user in PID namespace. Če tega ne dovoli, se shell ukaz varno zavrne; podatkovni dostop brez peskovnika ni omogočen.
 - Neobvezne TLS certifikate lahko priklopite s secretom `agent-platform-certificates`; v `agent-api` je na voljo v `/certs`.
 - Skupni PVC aplikacije zahteva `ReadWriteMany`, ker vse tri aplikacijske pod-e uporabljajo `/data`. Če gruča nima RWX shrambe, zagotovite RWX storage class ali drugo ustrezno souporabo podatkov.
 - Storitve so nastavljene na eno repliko. `agent-api` naj ostane pri eni repliki, dokler runtime zaklepanje in checkpoint vedenje nista pregledana za več replik.

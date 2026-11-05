@@ -68,6 +68,14 @@ VLLM_CLIENT_KEY_FILE=/certs/client.key
 
 Definicije ponudnikov so v [config/providers.yaml](config/providers.yaml).
 
+### Shell izvajanje
+
+Agent ima omogočeno izvajanje ukazov v namenski mapi `/shell_executions` za vsakega uporabnika. Ukazi, Python skripte, virtualna okolja, nameščeni paketi, začasne datoteke in strežniki se hranijo v tej mapi. Delovni imenik `cwd` je relativna pot znotraj nje. Ukazi tečejo v OS peskovniku, ki dovoljuje zapisovanje samo v to mapo, sistemske runtime datoteke pa so na voljo samo za branje. Ukazi imajo omrežni dostop, zato lahko nameščajo pakete in strežejo aplikacije.
+
+Linux izvajanje zahteva bubblewrap ter podporo runtimea za neprivilegirane user in PID namespace. Če namespace ni mogoče ustvariti, se ukaz zavrne. V Docker Compose je seccomp filter za `agent-api` izklopljen, da bubblewrap lahko ustvari namespace; vse Linux capabilities so še vedno odstranjene, vklopljen pa ostaja `no-new-privileges`.
+
+Za Python pakete uporabite virtualno okolje (`python -m venv .venv`) ali `pip install --user`; globalna namestitev paketov v sistemske mape ni dovoljena. Dolgotrajne procese zaženite z `start_background_process`, nato uporabite orodja za pregled izhoda in ustavitev.
+
 ### Razmišljanje in izhodni žetoni modela
 
 Vsi klici uporabljajo skupni izklop razmišljanja in zgornjo mejo izhodnih žetonov. Privzeto je razmišljanje izklopljeno, največje število izhodnih žetonov na klic pa je 150.000. Nastavitvi veljata tudi za Bifrost, ki posreduje zahteve v vLLM; neposredni vLLM in Bifrost prejmeta `chat_template_kwargs.enable_thinking=false`, OpenAI pa `reasoning_effort=none`.

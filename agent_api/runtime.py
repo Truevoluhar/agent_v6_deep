@@ -55,7 +55,7 @@ class AgentRuntime:
     def create(cls, config: AppConfig, user_id: UUID | None = None) -> "AgentRuntime":
         if user_id is not None:
             paths = UserPaths.for_user(user_id)
-            agent = replace(config.agent, data_root=paths.root, workspace_root=paths.workspace, session_root=paths.sessions, memory_root=paths.memory, resources_root=paths.resources, runs_root=paths.runs, enabled_toolkits=[name for name in config.agent.enabled_toolkits if name != "shell"], bifrost_mcp_enabled=False, memory_files=["/.agent/AGENTS.md", "/.agent/MEMORY.md"], skills_root="/.agent/skills")
+            agent = replace(config.agent, data_root=paths.root, workspace_root=paths.workspace, session_root=paths.sessions, memory_root=paths.memory, resources_root=paths.resources, runs_root=paths.runs, bifrost_mcp_enabled=False, memory_files=["/.agent/AGENTS.md", "/.agent/MEMORY.md"], skills_root="/.agent/skills")
             config = replace(config, agent=agent)
         workspace = WorkspaceManager(config.agent.workspace_root)
         workspace.ensure_layout()
@@ -81,7 +81,6 @@ class AgentRuntime:
         _seed_skills(workspace, config.agent.skills_root)
         shell_env = {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
-            "HOME": str(config.agent.workspace_root / ".agent" / "home"),
         }
         process_manager = BackgroundProcessManager(
             workspace=workspace,
@@ -326,7 +325,10 @@ class AgentRuntime:
             f"{self.config.agent.system_prompt}\n\n"
             "Custom toolkits available in addition to the DeepAgents built-ins:\n"
             f"{toolkit_text}\n\n"
-            "Shell command execution is disabled. Use filesystem tools for workspace files. "
+            "Shell commands run only inside /shell_executions. Put scripts, package environments, temporary files, "
+            "and server files there; shell commands cannot read or change workspace data outside that directory. "
+            "Use a local virtual environment or local package install instead of system-wide package changes. "
+            "Start long-running servers with start_background_process. Use filesystem tools for other workspace files. "
             "Large tool results may be saved to a workspace file; use the returned path and read_file "
             "to retrieve exact details before relying on them, especially schemas and column definitions."
             " Use inspect_image or inspect_pdf to read visual files. For requests to anonymize or redact scanned documents, "

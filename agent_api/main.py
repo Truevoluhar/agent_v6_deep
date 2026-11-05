@@ -424,7 +424,6 @@ def list_workspace_files(path: str = "/", recursive: bool = False, max_entries: 
 
 @app.post("/v1/processes")
 def start_process(request: ProcessRequest, user: CurrentUser = Depends(require_user)) -> dict[str, Any]:
-    raise HTTPException(403, "Shell execution is disabled")
     runtime = get_runtime(user)
     try:
         return runtime.process_manager.start(request.command, cwd=request.cwd)
@@ -432,6 +431,10 @@ def start_process(request: ProcessRequest, user: CurrentUser = Depends(require_u
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except NotADirectoryError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/v1/processes")

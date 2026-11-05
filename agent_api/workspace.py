@@ -34,6 +34,7 @@ class WorkspaceManager:
             "analysis",
             "diagrams",
             "exports",
+            "shell_executions",
             ".agent",
             ".agent/home",
             ".agent/runs",
@@ -204,7 +205,13 @@ class WorkspaceManager:
 
     def delete_path(self, raw_path: str, recursive: bool = False) -> dict[str, Any]:
         path = self.resolve_path(raw_path)
-        if path == self.root or path == self.root / ".agent" or (self.root / ".agent") in path.parents:
+        shell_root = self.root / "shell_executions"
+        if (
+            path == self.root
+            or path == self.root / ".agent"
+            or (self.root / ".agent") in path.parents
+            or path == shell_root
+        ):
             raise ValueError("Protected workspace path")
         if not path.exists():
             raise FileNotFoundError(raw_path)
@@ -221,6 +228,8 @@ class WorkspaceManager:
     def copy_path(self, source: str, destination: str, overwrite: bool = False) -> dict[str, Any]:
         src = self.resolve_path(source)
         dst = self.resolve_path(destination)
+        if src == self.root / "shell_executions" or dst == self.root / "shell_executions":
+            raise ValueError("Protected shell execution directory")
         if not src.exists():
             raise FileNotFoundError(source)
         if dst.exists() and not overwrite:
@@ -242,6 +251,8 @@ class WorkspaceManager:
     def move_path(self, source: str, destination: str, overwrite: bool = False) -> dict[str, Any]:
         src = self.resolve_path(source)
         dst = self.resolve_path(destination)
+        if src == self.root / "shell_executions" or dst == self.root / "shell_executions":
+            raise ValueError("Protected shell execution directory")
         if not src.exists():
             raise FileNotFoundError(source)
         if dst.exists():

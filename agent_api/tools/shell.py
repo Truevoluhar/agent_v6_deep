@@ -26,39 +26,39 @@ def _safe_call(fn):
 def build_shell_tools(context: ToolContext) -> list[Any]:
     from langchain_core.tools import tool
 
-    workspace = context.workspace
     process_manager = context.process_manager
 
     @tool(parse_docstring=True)
     def run_shell(command: str, cwd: str = "/", timeout_seconds: int | None = None) -> str:
-        """Run a shell command in the workspace and wait for completion.
+        """Run a shell command inside /shell_executions and wait for completion.
 
         Args:
-            command: Shell command to execute with bash -lc.
-            cwd: Working directory relative to the workspace root.
+            command: Shell command to execute.
+            cwd: Working directory relative to /shell_executions. Use / for its root.
             timeout_seconds: Optional override for the shell timeout.
         """
 
         def _run() -> str:
-            cwd_path = workspace.resolve_path(cwd)
+            cwd_path = process_manager.resolve_execution_cwd(cwd)
             payload = run_shell_command(
                 command=command,
                 cwd=cwd_path,
-                env=context.shell_env,
+                env=process_manager.execution_env,
                 timeout_seconds=timeout_seconds or context.config.agent.shell_timeout_seconds,
+                execution_root=process_manager.execution_root,
             )
-            payload["cwd"] = workspace.relative_path(cwd_path)
+            payload["cwd"] = process_manager.execution_relative_path(cwd_path)
             return _render(payload)
 
         return _safe_call(_run)
 
     @tool(parse_docstring=True)
     def start_background_process(command: str, cwd: str = "/") -> str:
-        """Start a long-running shell command and return a process id.
+        """Start a long-running shell command inside /shell_executions.
 
         Args:
-            command: Shell command to execute with bash -lc.
-            cwd: Working directory relative to the workspace root.
+            command: Shell command to execute.
+            cwd: Working directory relative to /shell_executions. Use / for its root.
         """
 
         return _safe_call(lambda: _render(process_manager.start(command=command, cwd=cwd)))

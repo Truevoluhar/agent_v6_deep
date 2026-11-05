@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential curl git ripgrep tesseract-ocr tesseract-ocr-slv tesseract-ocr-eng \
+    && apt-get install -y --no-install-recommends build-essential bubblewrap curl git ripgrep tesseract-ocr tesseract-ocr-slv tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 COPY agent_api/requirements.txt /tmp/requirements.txt

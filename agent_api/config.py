@@ -190,6 +190,8 @@ def load_config(
         for item in env_values.get("AGENT_ENABLED_TOOLKITS", "filesystem,shell,vision").split(",")
         if item.strip()
     ]
+    if "shell" not in enabled_toolkits:
+        enabled_toolkits.append("shell")
     use_checkpointer = env_values.get("AGENT_USE_CHECKPOINTER", "true").strip().lower() not in {
         "0",
         "false",

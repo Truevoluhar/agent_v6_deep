@@ -141,7 +141,7 @@ Storitev sestavi model, checkpointer, datotečno zaledje, spominsko datoteko, ve
 
 ## 9. Trajni workspace
 
-`data/agent_workspace` je trajna mapa, ki jo uporabljata `agent-api` in `workspace-api`.
+`data/agent_workspace` je trajna mapa, ki jo uporabljata `agent-api` in `workspace-api`. Vsak uporabniški workspace vsebuje tudi `/shell_executions`, ki je edina mapa, v kateri lahko agent izvaja shell ukaze.
 
 Priporočena konvencija:
 
@@ -152,6 +152,7 @@ Priporočena konvencija:
 ├── analysis/
 ├── diagrams/
 ├── exports/
+├── shell_executions/
 └── .agent/
     ├── AGENTS.md
     ├── home/
@@ -201,7 +202,7 @@ Dobra varnostna ugotovitev vsebuje lokacijo, prizadeto kodo ali verzijo, dokaz, 
 
 ## 16. Varnostni model
 
-Referenčni MVP uporablja `LocalShellBackend` znotraj vsebnika `agent-api`. To je varneje kot izvajanje na Docker gostitelju, vendar je še vedno neomejen shell znotraj vsebnika in lahko spremeni vse, kar je vanj priklopljeno z zapisom.
+Shell ukazi tečejo v ločenem bubblewrap mount in PID namespaceu na Linuxu oziroma v macOS sandbox profilu pri lokalnem razvoju. V namespace je priklopljen samo uporabniški `/shell_executions` za zapisovanje; aplikacijski podatki in druge mape niso vidni ukazu. Sistemske izvajalne datoteke so na voljo samo za branje. Če operacijski sistem ali runtime ne omogoča peskovnika, se shell ukaz zavrne.
 
 Compose postavitev vključuje ne-root uporabnike, odstranjene Linux capabilities, `no-new-privileges`, eksplicitno priklopljen trajni workspace, read-only konfiguracijo in veščine ter izolirano bazo na notranjem omrežju.
 
@@ -276,7 +277,7 @@ Izvorno drevo je bilo statično preverjeno s Python `compileall`. Polnega živeg
 3. Zaženite sprejemni nabor ponudnika.
 4. Dodajte SSE ali WebSocket streaming.
 5. Pred izpostavitvijo izven zasebnega omrežja dodajte avtentikacijo.
-6. Shell izvajanje premaknite v namenski sandbox pred nezaupanja vrednimi uporabniki ali datotekami.
+6. Pri javni izpostavitvi dodajte omejitve CPU-ja, pomnilnika, trajanja in števila sočasnih shell procesov.
 7. Dodajajte nalogam prilagojena orodja in veščine namesto neskončnega širjenja sistemskega poziva.
 8. Dodajte integracijske teste, ki restartajo storitve in preverijo trajnost checkpointov ter workspacea.
 9. Vzpostavite backup PostgreSQL in workspacea oziroma object storagea.

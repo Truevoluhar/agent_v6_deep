@@ -92,6 +92,8 @@ services:
       retries: 10
     security_opt:
       - no-new-privileges:true
+      # Bubblewrap needs namespace syscalls; all Linux capabilities remain dropped.
+      - seccomp=unconfined
     cap_drop:
       - ALL
 
