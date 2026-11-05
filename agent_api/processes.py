@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import threading
 import uuid
 from dataclasses import dataclass
@@ -53,6 +54,34 @@ def build_shell_environment(execution_root: Path, base_env: dict[str, str]) -> d
     return env
 
 
+def _sandbox_identity_kwargs() -> dict[str, Any]:
+    """Run bubblewrap as an unprivileged uid when the API itself runs as root."""
+    if not sys.platform.startswith("linux") or os.geteuid() != 0:
+        return {}
+    uid = int(os.environ.get("AGENT_SHELL_UID", "10001"))
+    gid = int(os.environ.get("AGENT_SHELL_GID", "10001"))
+    if uid == 0 or gid == 0:
+        raise RuntimeError("Linux shell sandbox uid/gid must be unprivileged")
+    return {"user": uid, "group": gid, "extra_groups": []}
+
+
+def _make_execution_root_writable_by_sandbox_user(root: Path) -> None:
+    """Allow the unprivileged sandbox uid to use the dedicated execution tree."""
+    root.chmod(0o777)
+    for current, directories, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in directories:
+            path = current_path / name
+            if not path.is_symlink():
+                path.chmod(0o777)
+        for name in files:
+            path = current_path / name
+            if path.is_symlink():
+                continue
+            mode = path.stat(follow_symlinks=False).st_mode
+            path.chmod((mode & 0o111) | 0o666)
+
+
 @dataclass
 class LiveProcess:
     process: subprocess.Popen[str]
@@ -88,6 +117,8 @@ class BackgroundProcessManager:
             raise ValueError("Shell execution root must be /shell_executions in this workspace")
         self.execution_root.mkdir(parents=True, exist_ok=True)
         self._prepare_execution_environment()
+        if sys.platform.startswith("linux"):
+            _make_execution_root_writable_by_sandbox_user(self.execution_root)
         self.processes_dir = processes_root
         self.processes_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -156,6 +187,7 @@ class BackgroundProcessManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 start_new_session=True,
+                **_sandbox_identity_kwargs(),
             )
         except Exception:
             stdout_handle.close()
@@ -321,6 +353,7 @@ def run_shell_command(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
+        **_sandbox_identity_kwargs(),
     )
     try:
         stdout, stderr = process.communicate(timeout=timeout_seconds)

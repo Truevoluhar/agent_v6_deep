@@ -23,7 +23,9 @@ COPY config /app/config
 COPY skills /app/skills
 COPY workspace_seed /seed
 
-RUN chmod +x /app/agent_api/entrypoint.sh \
+RUN groupadd --gid 10001 appuser \
+    && useradd --create-home --uid 10001 --gid 10001 appuser \
+    && chmod +x /app/agent_api/entrypoint.sh \
     && chmod -R g=u /app /seed /tmp
 
 EXPOSE 8081

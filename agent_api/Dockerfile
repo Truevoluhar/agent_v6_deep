@@ -21,7 +21,8 @@ COPY skills /app/skills
 COPY workspace_seed /seed
 COPY agent_api/entrypoint.sh /app/agent_api/entrypoint.sh
 
-RUN useradd --create-home --uid 10001 appuser \
+RUN groupadd --gid 10001 appuser \
+    && useradd --create-home --uid 10001 --gid 10001 appuser \
     && mkdir -p /workspace \
     && chown -R appuser:appuser /app /seed \
     && chmod +x /app/agent_api/entrypoint.sh
